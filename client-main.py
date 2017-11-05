@@ -1,7 +1,10 @@
 from Tkinter import *
+import tkMessageBox
 import tkFont as tkfont
 import ttk
 import re
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s',)
 
 
 class Client(Tk):
@@ -9,6 +12,7 @@ class Client(Tk):
         Tk.__init__(self, *args, **kwargs)
         self.title_font = tkfont.Font(family='Helvetica', size=18, weight="bold", slant="italic")
         self.title('Sodoku Game Application')
+        logging.debug('Client has started!')
         # the container is where we'll stack a bunch of frames
         # on top of each other, then the one we want visible
         # will be raised above the others
@@ -48,6 +52,7 @@ class Login(Frame):
         self.score = IntVar()
         self.name_entry = StringVar()
         """login page"""
+        logging.debug('Waiting for input username')
         # login frame
         self.login_frame = Frame(self, width=300, height=150)
         self.login_frame.pack()
@@ -67,11 +72,24 @@ class Login(Frame):
         self.login_foot_label.grid(row=2, column=0, columnspan=3, sticky=NSEW)
 
     def check_username(self):
+        # get input name
         self.name = self.login_name_entry.get()
-        check = re.search('\w+', self.name, flags=0).group()
-        print check
-        if check == str(self.name):
-            print 'success!'
+        logging.debug('Checking username')
+        try:
+            check = re.search('\w+', self.name, flags=0).group()
+            if check == str(self.name):
+                logging.debug('Player name set to %s!' % self.name)
+                tkMessageBox.showinfo('Welcome', 'Welcome to Sudoku game! %s' % self.name)
+                self.controller.show_frame("Waiting")
+            else:
+                logging.debug('Name Error: Illegal username!')
+                tkMessageBox.showwarning('Name Error', 'Illegal username!')
+                self.name_entry.set('')
+        except AttributeError:
+            logging.debug('Name Error: No character input!')
+            tkMessageBox.showwarning('Name Error', 'No character input!')
+            self.name_entry.set('')
+
 
 
     def return_info(self):
@@ -85,7 +103,7 @@ class Waiting(Frame):
         self.pack(side="top", fill="both", expand=True)
         # get info from server
         self.name = StringVar()
-        self.name.set('Hello: Shan!')
+        self.name.set('Welcome: Shan!')
 
         """Waiting page"""
         label = Label(self, textvariable=self.name, font=controller.title_font)
