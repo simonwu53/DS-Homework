@@ -1,3 +1,11 @@
+"""
+MAIN STRUCTURE: GUI -> **Tkinter** contains __ pages -> {Client(base), Login, Joining, Waiting, Playing, Result}
+User data stored in class **Userinfo**. And use this class to talk to server. (Tkinter for logic, Userinfo give function)
+"""
+"""
+Every game login first, then create character and name. So in this game, we enter server info FIRST to ensure no 
+duplicated names.
+"""
 from Tkinter import *
 import tkMessageBox
 import tkFont as tkfont
@@ -5,6 +13,51 @@ import ttk
 import re
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s',)
+
+
+class Userinfo():
+    def __init__(self):
+        self.currentname = ''
+        self.names = []
+        self.score = 0
+        self.currentgame = ''
+        # create socket
+
+    """set methods"""
+    def setname(self, n):
+        self.currentname = n
+        self.names.append(self.currentname)
+
+    def setscore(self, n):
+        self.score = n
+
+    def joingame(self, g):
+        self.currentname = g  # finish later
+
+    """get methods"""
+    def getname(self):
+        return self.currentname
+
+    def getscore(self):
+        return self.score
+
+    def getoldnames(self):
+        return self.names
+
+    """communicate with server"""
+    def checkname(self, n):  # finish later
+        examplecheck = True
+        return examplecheck
+
+    def fetchgames(self):  # finish later (deal problem before connect to server)
+        examplegames = {1:[[0,0,0,0],3], 2:[[1,0,1,0],5], 3:[[0,2,2,0],2]}
+        exampleusers = {1: {'Jerry': 5, 'Tom': 0}, 2: {'Simon': 0}, 3: {'Kitty': 10, 'Michael': 12}}
+        return examplegames, exampleusers
+
+    def makeconnection(self, addr, port):
+        print addr, int(port)  # finish later
+        return True
+
 
 
 class Client(Tk):
@@ -20,9 +73,10 @@ class Client(Tk):
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
-
+        # create user instance
+        self.user = Userinfo()
         self.frames = {}
-        for F in (Login, Waiting):
+        for F in (Login, ConnectServer, Joining):
             page_name = F.__name__
             frame = F(master=container, controller=self)
             self.frames[page_name] = frame
@@ -32,7 +86,7 @@ class Client(Tk):
             # will be the one that is visible.
             frame.grid(row=0, column=0, sticky="nsew")
 
-        self.show_frame("Login")
+        self.show_frame("ConnectServer")
 
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
@@ -49,10 +103,8 @@ class Login(Frame):
 
         # User profile
         self.name = StringVar()
-        self.score = IntVar()
         self.name_entry = StringVar()
         """login page"""
-        logging.debug('Waiting for input username')
         # login frame
         self.login_frame = Frame(self, width=300, height=150)
         self.login_frame.pack()
@@ -62,6 +114,8 @@ class Login(Frame):
         # username entry
         self.login_name_entry = Entry(self.login_frame, textvariable=self.name_entry)
         self.login_name_entry.grid(row=1, column=0, columnspan=2, sticky=NSEW)
+        self.login_name_entry.focus()
+        self.login_name_entry.bind('<Return>', self.enterbtn)
         # submit button
         self.login_submit_button = Button(self.login_frame, text='Submit', command=self.check_username)
         self.login_submit_button.grid(row=1, column=2, sticky=W)
@@ -71,45 +125,160 @@ class Login(Frame):
         self.login_foot_label = Label(self.login_frame, text='No more than 8 characters. No special symbols.')
         self.login_foot_label.grid(row=2, column=0, columnspan=3, sticky=NSEW)
 
+        logging.debug('Loading *Login* Page success!')
+
     def check_username(self):
         # get input name
         self.name = self.login_name_entry.get()
-        logging.debug('Checking username')
         try:
             check = re.search('\w+', self.name, flags=0).group()
             if check == str(self.name):
-                logging.debug('Player name set to %s!' % self.name)
-                tkMessageBox.showinfo('Welcome', 'Welcome to Sudoku game! %s' % self.name)
-                self.controller.show_frame("Waiting")
+                logging.debug('Player name set to %s!. Checking on server' % self.name)
+                # check name on server..
+                if self.controller.user.checkname(check):
+                    logging.debug('Name ok!')
+                    tkMessageBox.showinfo('Welcome', 'Welcome to Sudoku game! %s' % self.name)
+                    self.controller.user.setname(self.name)  # store user info
+                    self.controller.show_frame("Joining")
+                else:
+                    logging.debug('Name Error: Duplicated username on server!')
+                    tkMessageBox.showwarning('Name Error', 'Duplicated username on server!')
+                    self.name_entry.set('')
+                    self.login_name_entry.focus()
             else:
                 logging.debug('Name Error: Illegal username!')
                 tkMessageBox.showwarning('Name Error', 'Illegal username!')
                 self.name_entry.set('')
+                self.login_name_entry.focus()
         except AttributeError:
             logging.debug('Name Error: No character input!')
             tkMessageBox.showwarning('Name Error', 'No character input!')
             self.name_entry.set('')
+            self.login_name_entry.focus()
+
+    def enterbtn(self, e):
+        self.check_username()
 
 
-
-    def return_info(self):
-        return self.name
-
-
-class Waiting(Frame):
+class ConnectServer(Frame):
     def __init__(self, master, controller):
         # init Frame
         Frame.__init__(self, master)
         self.pack(side="top", fill="both", expand=True)
-        # get info from server
-        self.name = StringVar()
-        self.name.set('Welcome: Shan!')
+        self.controller = controller
+        # 'ConnectServer' Frame
+        self.consrv_frame = Frame(self, width=300, height=150)
+        self.consrv_frame.pack()
+        # variables
+        self.IP_entry_var = StringVar()
+        self.port_entry_var = StringVar()
 
-        """Waiting page"""
-        label = Label(self, textvariable=self.name, font=controller.title_font)
-        label.pack(side="top", fill="x", pady=10)
+        # head label
+        label = Label(self.consrv_frame, text='Connect to the server first:)', font=controller.title_font)
+        label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
+        # server IP label&entry
+        IP_label = Label(self.consrv_frame, text='Server IP address:')
+        self.IP_entry = Entry(self.consrv_frame, textvariable=self.IP_entry_var)
+        IP_label.grid(row=2, column=0, sticky=W)
+        self.IP_entry.grid(row=2, column=1, sticky=W)
+        self.IP_entry.focus()
+        self.IP_entry.bind('<Return>', self.enterbtn)
+        # server port label&entry
+        port_label = Label(self.consrv_frame, text='Server port:')
+        self.port_entry = Entry(self.consrv_frame, textvariable=self.port_entry_var)
+        port_label.grid(row=4, column=0, sticky=W)
+        self.port_entry.grid(row=4, column=1, sticky=W)
+        self.port_entry.bind('<Return>', self.enterbtn)
+        # submit button
+        self.submit_button = Button(self.consrv_frame, text='Connnect', command=self.connect)
+        self.submit_button.grid(row=5, column=0, columnspan=2, sticky=NSEW)
+        self.quit_button = Button(self.consrv_frame, text='Quit', command=self.quit)
+        self.quit_button.grid(row=6, column=0, columnspan=2, sticky=NSEW)
+        logging.debug('Loading *Connectserver* Page success!')
+
+    def connect(self):
+        serveraddr = ''
+        serverport = 0
+        try:
+            serveraddr = self.IP_entry.get()
+            serverport = int(self.port_entry.get())
+            if len(serveraddr) < 8:
+                logging.debug('Address value error!')
+                tkMessageBox.showwarning('Input Error', 'Server address error!')
+                self.IP_entry_var.set('')
+                self.port_entry_var.set('')
+                self.IP_entry.focus()
+        except ValueError:
+            logging.debug('Port value error!')
+            tkMessageBox.showwarning('Input Error', 'Port number error!')
+            self.IP_entry_var.set('')
+            self.port_entry_var.set('')
+            self.IP_entry.focus()
+
+        # connect to server
+        if self.controller.user.makeconnection(serveraddr, serverport):
+            logging.debug('Connected to server!')
+            self.controller.show_frame("Login")
+        else:
+            logging.debug('Connecting failed! Please check your input!')
+            tkMessageBox.showwarning('Connection Error', 'Connecting failed! Please check your input!')
+            self.IP_entry_var.set('')
+            self.port_entry_var.set('')
+            self.IP_entry.focus()
+
+    def enterbtn(self, e):
+        self.connect()
+
+
+class Joining(Frame):
+    def __init__(self, master, controller):
+        # init Frame
+        Frame.__init__(self, master)
+        self.pack(side="top", fill="both", expand=True)
+        self.controller = controller
+        # welcome string
+        self.welcome = StringVar()
+        self.welcome.set('Please select your game session!')
+        """Joining page"""
+        # Joing frame
+        self.join_frame = Frame(self, width=300, height=150)
+        self.join_frame.pack()
+        # Slogan welcome
+        label = Label(self.join_frame, textvariable=self.welcome, font=controller.title_font)
+        label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
+        # session table tree
+        self.tree = ttk.Treeview(self.join_frame, show='headings', height=18, columns=('a', 'b'))
+        self.tree.column('a', width=50, anchor='center')
+        self.tree.column('b', width=50, anchor='center')
+        self.tree.heading('a', text='Game ID')
+        self.tree.heading('b', text='Players')
+        self.loadgames()
+        self.tree.grid(row=1, column=0, columnspan=2, sticky=NSEW)
+        logging.debug('Loading *Joining* Page success!')
+        # select game session entry
+        """
+        self.game_entry = IntVar
+        self.join_game_entry = Entry(self.join_frame, textvariable=self.game_entry)
+        self.join_game_entry.grid(row=1, column=2, sticky=NSEW)
+        """
+
+    def loadgames(self):
+        # delete old items
+        for _ in map(self.tree.delete, self.tree.get_children('''''')):
+            pass
+        # fetch new
+        self.games, self.users = self.controller.user.fetchgames()  # fetch game sessions
+        for gameid, gamelist in self.games.iteritems():
+            player_limit = gamelist[1]
+            namelist = self.users[gameid]
+            self.tree.insert('', 'end', values=(gameid, str(len(namelist))+'/'+str(player_limit)))
+        self.tree.after(10000, self.loadgames)
+        logging.debug('Refreshing game sessions every 10s.')
 
 
 if __name__ == '__main__':
     app = Client()
-    app.mainloop()
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        logging.debug('User terminated client!')
