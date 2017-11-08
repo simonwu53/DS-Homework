@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 # message separator
 MSG_SEP = ':'
-DATA_SEP = ','
+DATA_SEP = '/'
 # Protocol Recv Size ---------------------------------------------------------
 MAX_RECV_SIZE = 1024
 

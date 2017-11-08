@@ -6,6 +6,11 @@ User data stored in class **Userinfo**. And use this class to talk to server. (T
 Every game login first, then create character and name. So in this game, we enter server info FIRST to ensure no 
 duplicated names.
 """
+"""
+change data type of sudoku, userinfos -> need to change in UI function
+self.users = 'user1/0:user2/5:user3/10'
+line 337: example game data
+"""
 from Tkinter import *
 import tkMessageBox
 import tkFont as tkfont
@@ -55,6 +60,7 @@ class Userinfo():
         examplegames = {1:[[0,0,0,0],3],
                         2:[[1,0,1,0],5],
                         3:[[0,2,2,0],2]}
+
         exampleusers = {1: {'Jerry': 5, 'Tom': 0},
                         2: {'Simon': 0},
                         3: {'Kitty': 10, 'Michael': 12}}
@@ -329,11 +335,12 @@ class Joining(Frame):
         for _ in map(self.tree.delete, self.tree.get_children('''''')):
             pass
         # fetch new
-        self.games, self.users = self.controller.user.fetchgames()  # fetch game sessions
-        for gameid, gamelist in self.games.iteritems():
-            player_limit = gamelist[1]
-            namelist = self.users[gameid]
-            self.tree.insert('', 'end', values=(gameid, str(len(namelist))+'/'+str(player_limit)))
+        self.games = '1/[0,0,0,0]/3/2:2/[1,0,1,0]/5/1:3/[0,2,2,0]/2/2'  #just example
+        # append to tree
+        splited_game = self.games.split(client_protocol.MSG_SEP)
+        for eachgame in splited_game:
+            gameinfo = eachgame.split(client_protocol.DATA_SEP)
+            self.tree.insert('', 'end', values=(gameinfo[0], gameinfo[3] + '/' + gameinfo[2]))
         self.tree.after(15000, self.loadgames)  # refresh every 15s
         logging.debug('Refreshing game sessions every 15s.')
 
@@ -371,11 +378,11 @@ class Joining(Frame):
         col2Lbl.grid(row=0, column=2)
         col2Ent.grid(row=0, column=3)
 
-        col3Lbl = Label(win, text="Value 3: ")
-        col3Ent = Entry(win)
-        col3Ent.insert(0, values[2])  # Default is column 3's current value
-        col3Lbl.grid(row=0, column=4)
-        col3Ent.grid(row=0, column=5)
+        #col3Lbl = Label(win, text="Value 3: ")
+        #col3Ent = Entry(win)
+        #col3Ent.insert(0, values[2])  # Default is column 3's current value
+        #col3Lbl.grid(row=0, column=4)
+        #col3Ent.grid(row=0, column=5)
 
         def UpdateThenDestroy():
             if self.ConfirmEntry(self.tree, col1Ent.get(), col2Ent.get(), col3Ent.get()):
