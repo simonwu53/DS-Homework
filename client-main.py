@@ -382,10 +382,10 @@ class Joining(Frame):
         #col3Ent = Entry(win)
         #col3Ent.insert(0, values[2])  # Default is column 3's current value
         #col3Lbl.grid(row=0, column=4)
-        #col3Ent.grid(row=0, column=5)
+        #col3Ent.grid(row=0, column=5)  , col3Ent.get()
 
         def UpdateThenDestroy():
-            if self.ConfirmEntry(self.tree, col1Ent.get(), col2Ent.get(), col3Ent.get()):
+            if self.ConfirmEntry(self.tree, col1Ent.get(), col2Ent.get()):
                 win.destroy()
 
         okButt = Button(win, text="Ok")
@@ -396,7 +396,7 @@ class Joining(Frame):
         canButt.bind("<Button-1>", lambda c: win.destroy())
         canButt.grid(row=1, column=5)
 
-    def ConfirmEntry(self, treeView, entry1, entry2, entry3):
+    def ConfirmEntry(self, treeView, entry1, entry2):
         ####
         # Whatever validation you need
         ####
@@ -408,7 +408,7 @@ class Joining(Frame):
         self.DeleteCurrentEntry(treeView)
 
         # Put it back in with the upated values
-        treeView.insert('', currInd, values=(entry1, entry2, entry3))
+        treeView.insert('', currInd, values=(entry1, entry2))
 
         return True
 
@@ -513,6 +513,7 @@ class GameSession(Frame):
         label = Label(self.game_header_frame, textvariable=self.welcome, font=controller.title_font)
         label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
         # footer button
+        # quit
         self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit)
         self.exit_button.grid(row=0, column=0, sticky=NSEW)
         # for test **add quit button**
