@@ -52,34 +52,122 @@ class Userinfo():
         return self.gameid
 
     """communicate with server Kadir's work"""
-    def checkname(self, n):  # finish later
-        examplecheck = True
-        return examplecheck
+    def checkname(self, n): 
+        check = True
+        
+        message = client_protocol.__REQ_REG + client_protocol.MSG_SEP + n
+        rsp_hdr, rsp_msg = publish(self.socket,message)
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            check = True
+            self.names.append(n)
+        else:
+            check = False
+
+        return check
 
     def fetchgames(self):  # finish later (deal problem before connect to server)
         examplegames = {1:[[0,0,0,0],3],
                         2:[[1,0,1,0],5],
                         3:[[0,2,2,0],2]}
-
         exampleusers = {1: {'Jerry': 5, 'Tom': 0},
                         2: {'Simon': 0},
                         3: {'Kitty': 10, 'Michael': 12}}
         return examplegames, exampleusers
 
     def makeconnection(self, addr, port):
-        print addr, int(port)  # finish later
-        return True
+        #print addr, int(port) 
+        check= True
+        server_address = (addr,int(port))        #not sure
+        try:
+            self.socket.connect(server_address)
+            check= True
+        except:
+            check = False
+            
+        return check
 
-    def joingame(self, gid):  # finish later
-        self.gameid = gid  # only when join succussfully/ create game
-        return True
+    def joingame(self, gid): 
+        check= True
+        
+        message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + gid
+        rsp_hdr, rsp_msg = publish(self.socket,message)
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            check = True
+            self.gameid = gid
+        else:
+            check = False
+        
+        return check
 
-    def create_game(self, diffi, limit): # finish later
-        return 2
-
-    def quit_game(self, user, gid): # finish later (delete username on server)
-        return True
-
+    def create_game(self, diffi, limit):
+        check= True
+        
+        message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + self.currentname + client_protocol.DATA_SEP + limit + client_protocol.DATA_SEP + diffi
+        rsp_hdr, rsp_msg = publish(self.socket,message)
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            gid = int(rsp_msg)
+        else:
+            gid = -1
+        
+        return gid
+    
+    def attempt(self, place, number):
+        check= True
+        
+        message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + place + client_protocol.DATA_SEP + number
+        rsp_hdr, rsp_msg = publish(self.socket,message)
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            check = True
+        else:
+            check = False
+        
+        return check
+        
+    def quit_game(self, gid):
+        check= True
+        
+        message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + self.gameid
+        rsp_hdr, rsp_msg = publish(self.socket,message)
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            check = True
+        else:
+            check = False
+        
+        return check
+    
+    def sudoku(self):
+        
+        message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP + ""
+        rsp_hdr, rsp_msg = publish(self.socket,message) 
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            check = True
+        else:
+            check = False
+            
+        return check, rsp_msg
+    
+    def user(self):
+        
+        message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + ""
+        rsp_hdr, rsp_msg = publish(self.socket,message) 
+        
+        if rsp_hdr == client_protocol.__RSP_OK :
+            check = True
+            user = rsp_msg[0]
+            scores = rsp_msg[2:]
+        else:
+            check = False
+            user = ""
+            scores = ""
+            
+        return check, user, scores
+                
     def cut_down(self, user): #finish later (close connection)
         return True
 
