@@ -7,11 +7,13 @@ from socket import error as soc_error
 from sys import exit
 import server_protocol
 from threading import Thread
+from argparse import ArgumentParser
 ___NAME = 'Sudoku Server'
 ___VER = '0.1.0.0'
 ___DESC = 'Sudoku Server (TCP version)'
 ___BUILT = '2017-07-11'
 ___VENDOR = 'Copyright (c) 2017 Univeristy of Tartu Students team'
+__DEFAULT_SERVER_PORT = 8888
 TCP_RECEIVE_BUFFER_SIZE=1024*1024
 def __info():
     return '%s version %s (%s) %s' % (___NAME, ___VER, ___BUILT, ___VENDOR)
@@ -69,15 +71,27 @@ def __info():
             #continue
 threads=[]
 # Serve forever
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^argument parser
+parser = ArgumentParser(description=__info(),
+                            version = ___VER)
+parser.add_argument('-H','--host',\
+                        help='Server INET address',\
+                        required=True
+                        )
+parser.add_argument('-p','--port', type=int,\
+                        help='Server UDP port, '\
+                        'defaults to %d' % __DEFAULT_SERVER_PORT, \
+                        default=__DEFAULT_SERVER_PORT)
+args = parser.parse_args()
 LOG.info('%s version %s started ...' % (___NAME, ___VER))
-
-
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 # Declaring TCP socket
-__server_socket = socket(AF_INET,SOCK_STREAM)
+
+__server_socket = socket(AF_INET, SOCK_STREAM)
 LOG.debug('Server socket created, descriptor %d' % __server_socket.fileno())
 # Bind TCP Socket
 try:
-    __server_socket.bind((args.listenaddr,int(args.listenport)))
+    __server_socket.bind((args.listenaddr, int(args.listenport)))
 except soc_error as e:
     LOG.error('Can\'t start MBoard server, error : %s' % str(e) )
     exit(1)
