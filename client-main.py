@@ -9,6 +9,7 @@ duplicated names.
 """
 change data type of sudoku, userinfos -> need to change in UI function
 self.users = 'user1/0:user2/5:user3/10'
+line 92 : connection example
 line 337: example game data
 """
 from Tkinter import *
@@ -18,28 +19,30 @@ import ttk
 import re
 import logging
 import client_protocol
+from socket import AF_INET, SOCK_STREAM, socket, timeout
 import sudoku_generator  # for test
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s',)
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s', )
 
 
 class Userinfo():
     def __init__(self):
         self.currentname = ''
-        self.names = ['Peter', 'James', 'Curry']   # example
+        self.names = ['Or select your previous names', ]
         self.score = 0
         self.gameid = 0
-        #self.socket =
-        # create socket
+        self.socket = socket(AF_INET, SOCK_STREAM)
 
     """set methods"""
+
     def setname(self, n):
         self.currentname = n
-        self.names.append(self.currentname)
 
     def setscore(self, n):
         self.score = n
 
     """get methods"""
+
     def getname(self):
         return self.currentname
 
@@ -52,125 +55,138 @@ class Userinfo():
     def getgameid(self):
         return self.gameid
 
-    """communicate with server Kadir's work"""
-    def checkname(self, n): 
+
+"""communicate with server Kadir's work"""
+def checkname(usr, n):
+    rsp_hdr = ''
+    check = True
+    msg = client_protocol.__REQ_REG + client_protocol.MSG_SEP + n
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, msg)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
         check = True
-        
-        message = client_protocol.__REQ_REG + client_protocol.MSG_SEP + n
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            check = True
-            self.names.append(n)
-        else:
-            check = False
+        if n not in usr.names:
+            usr.names.append(n)
+    else:
+        check = False
+    return check
 
-        return check
 
-    def fetchgames(self):  # finish later (deal problem before connect to server)
-        examplegames = {1:[[0,0,0,0],3],
-                        2:[[1,0,1,0],5],
-                        3:[[0,2,2,0],2]}
-        exampleusers = {1: {'Jerry': 5, 'Tom': 0},
-                        2: {'Simon': 0},
-                        3: {'Kitty': 10, 'Michael': 12}}
-        return examplegames, exampleusers
+def fetchgames(usr):  # finish later (deal problem before connect to server)
+    examplegames = {1: [[0, 0, 0, 0], 3],
+                    2: [[1, 0, 1, 0], 5],
+                    3: [[0, 2, 2, 0], 2]}
+    exampleusers = {1: {'Jerry': 5, 'Tom': 0},
+                    2: {'Simon': 0},
+                    3: {'Kitty': 10, 'Michael': 12}}
+    return examplegames, exampleusers
 
-    def makeconnection(self, addr, port):
-        #print addr, int(port) 
-        check= True
-        server_address = (addr,int(port))        #not sure
-        try:
-            self.socket.connect(server_address)
-            check= True
-        except:
-            check = False
-            
-        return check
 
-    def joingame(self, gid): 
-        check= True
-        
-        message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + gid
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            check = True
-            self.gameid = gid
-        else:
-            check = False
-        
-        return check
+def makeconnection(usr, addr, port):
+    # print addr, int(port)
+    check = True
+    server_address = (addr, int(port))  # not sure  -R: you are right:)
+    usr.socket.settimeout(10)
+    try:
+        logging.debug('Trying to connect server!')
+        usr.socket.connect(server_address)
+        usr.socket.settimeout(None)
+        check = True
+    except timeout:
+        logging.debug('Connection time out!')
+        check = False  # set back to False after test
 
-    def create_game(self, diffi, limit):
-        check= True
-        
-        message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + self.currentname + client_protocol.DATA_SEP + limit + client_protocol.DATA_SEP + diffi
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            gid = int(rsp_msg)
-        else:
-            gid = -1
-        
-        return gid
-    
-    def attempt(self, place, number):
-        check= True
-        
-        message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + place + client_protocol.DATA_SEP + number
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            check = True
-        else:
-            check = False
-        
-        return check
-        
-    def quit_game(self, gid):
-        check= True
-        
-        message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + self.gameid
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            check = True
-        else:
-            check = False
-        
-        return check
-    
-    def sudoku(self):
-        
-        message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP + ""
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            check = True
-        else:
-            check = False
-            
-        return check, rsp_msg
-    
-    def user(self):
-        
-        message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + ""
-        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
-        
-        if rsp_hdr == client_protocol.__RSP_OK :
-            check = True
-            user = rsp_msg[0]
-            scores = rsp_msg[2:]
-        else:
-            check = False
-            user = ""
-            scores = ""
-            
-        return check, user, scores
-                
-    def cut_down(self, user): #finish later (close connection)
-        return True
+    return check
+
+
+def joingame(usr, gid):
+    check = True
+
+    message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + str(gid)
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        check = True
+        usr.gameid = gid
+    else:
+        check = False
+
+    return check
+
+
+def create_game(usr, diffi, limit):
+    check = True
+
+    message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + usr.currentname + client_protocol.DATA_SEP + limit + client_protocol.DATA_SEP + diffi
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        gid = int(rsp_msg)
+        usr.gameid = gid
+    else:
+        gid = -1
+
+    return gid
+
+
+def attempt(usr, place, number):
+    check = True
+
+    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + place + client_protocol.DATA_SEP + number
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        check = True
+    else:
+        check = False
+
+    return check
+
+
+def quit_game(usr):
+    check = True
+
+    message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(usr.gameid) + usr.currentname
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        check = True
+    else:
+        check = False
+
+    return check
+
+
+def fetch_sudoku(usr):
+    message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP + ""
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        check = True
+    else:
+        check = False
+
+    return check, rsp_msg
+
+
+def fetch_user(usr):
+    message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + ""
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        check = True
+        user = rsp_msg[0]
+        scores = rsp_msg[2:]
+    else:
+        check = False
+        user = ""
+        scores = ""
+
+    return check, user, scores
+
+
+def cut_down(usr, user):  # finish later (close connection)
+    return True
 
 
 class Client(Tk):
@@ -233,7 +249,8 @@ class Login(Frame):
         OLD_NAMES = self.controller.user.getoldnames()
         self.option_menu = OptionMenu(self.login_frame, self.old_names_var, *OLD_NAMES)
         self.option_menu.grid(row=2, column=0, columnspan=2, sticky=NSEW)
-        #self.login_name_entry.focus()
+        self.refresh_oldname()
+        # self.login_name_entry.focus()
         self.login_name_entry.bind('<Return>', self.enterbtn)
         # submit button
         self.login_submit_button = Button(self.login_frame, text='Submit', command=self.check_username)
@@ -250,6 +267,7 @@ class Login(Frame):
         # whether use previous name?
         if self.old_names_var.get() != 'Or select your previous names':
             self.name = self.old_names_var.get()
+            self.old_names_var.set('')
         else:
             # get input name
             self.name = self.login_name_entry.get()
@@ -258,7 +276,7 @@ class Login(Frame):
             if check == str(self.name):
                 logging.debug('Player name set to %s!. Checking on server' % self.name)
                 # check name on server..
-                if self.controller.user.checkname(check):
+                if checkname(self.controller.user, check):
                     logging.debug('Name ok!')
                     tkMessageBox.showinfo('Welcome', 'Welcome to Sudoku game! %s' % self.name)
                     self.controller.user.setname(self.name)  # store user info
@@ -273,7 +291,7 @@ class Login(Frame):
                 tkMessageBox.showwarning('Name Error', 'Illegal username!')
                 self.name_entry.set('')
                 self.login_name_entry.focus()
-        except AttributeError:
+        except AttributeError as e:
             logging.debug('Name Error: No character input!')
             tkMessageBox.showwarning('Name Error', 'No character input!')
             self.name_entry.set('')
@@ -282,6 +300,14 @@ class Login(Frame):
     def enterbtn(self, e):
         self.check_username()
 
+    def refresh_oldname(self):
+        logging.debug('refreshing old names')
+        self.option_menu.destroy()
+        OLD_NAMES = self.controller.user.getoldnames()
+        self.option_menu = OptionMenu(self.login_frame, self.old_names_var, *OLD_NAMES)
+        self.option_menu.grid(row=2, column=0, columnspan=2, sticky=NSEW)
+        self.option_menu.after(60000, self.refresh_oldname)
+
     def quit_conection(self):
         if tkMessageBox.askyesno('Quit?', 'Are you sure to quit?'):
             name = self.controller.user.getname()
@@ -289,7 +315,7 @@ class Login(Frame):
                 logging.debug('Bye:)')
                 self.quit()
             else:
-                if self.controller.user.cut_down(name):
+                if cut_down(self.controller.user, name):
                     logging.debug('Bye:)')
                     self.quit()
 
@@ -337,7 +363,9 @@ class ConnectServer(Frame):
             serveraddr = self.IP_entry.get()
             serverport = int(self.port_entry.get())
             # use re match
-            serveraddr_match = re.search('((?:(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d))))', serveraddr)
+            serveraddr_match = re.search(
+                '((?:(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d))))',
+                serveraddr)
             if not serveraddr_match:
                 logging.debug('Address value error!')
                 tkMessageBox.showwarning('Input Error', 'Server address error!')
@@ -354,7 +382,7 @@ class ConnectServer(Frame):
             return 0
 
         # connect to server
-        if self.controller.user.makeconnection(serveraddr_match.group(), serverport):
+        if makeconnection(self.controller.user, serveraddr_match.group(), serverport):
             logging.debug('Connected to server!')
             self.controller.show_frame("Login")
         else:
@@ -393,7 +421,6 @@ class Joining(Frame):
         self.loadgames()
         self.tree.grid(row=1, column=0, columnspan=3, sticky=NSEW)
         self.tree.bind('<Return>', self.select)
-        self.tree.bind('<Double-1>', self.OnDoubleClick)
         logging.debug('Loading *Joining* Page success!')
         # button
         self.select_button = Button(self.join_frame, text='Select', command=self.select)
@@ -408,7 +435,7 @@ class Joining(Frame):
             item = self.tree.selection()[0]
             itemtup = self.tree.item(item, 'values')
             gameid = int(itemtup[0])
-            if self.controller.user.joingame(gameid):
+            if joingame(self.controller.user, gameid):
                 logging.debug('User selected game ID: %d.' % gameid)
                 self.controller.show_frame("GameSession")
         except IndexError:
@@ -424,7 +451,7 @@ class Joining(Frame):
         for _ in map(self.tree.delete, self.tree.get_children('''''')):
             pass
         # fetch new
-        self.games = '1/[0,0,0,0]/3/2:2/[1,0,1,0]/5/1:3/[0,2,2,0]/2/2'  #just example
+        self.games = '1/[0,0,0,0]/3/2:2/[1,0,1,0]/5/1:3/[0,2,2,0]/2/2'  # just example
         # append to tree
         splited_game = self.games.split(client_protocol.MSG_SEP)
         for eachgame in splited_game:
@@ -432,81 +459,6 @@ class Joining(Frame):
             self.tree.insert('', 'end', values=(gameinfo[0], gameinfo[3] + '/' + gameinfo[2]))
         self.tree.after(15000, self.loadgames)  # refresh every 15s
         logging.debug('Refreshing game sessions every 15s.')
-
-    """test part"""
-
-    def OnDoubleClick(self, e):
-        # First check if a blank space was selected
-        entryIndex = self.tree.focus()
-        if '' == entryIndex: return
-
-        # Set up window
-        win = Toplevel()
-        win.title("Edit Entry")
-        #win.attributes("-toolwindow", True)
-
-        ####
-        # Set up the window's other attributes and geometry
-        ####
-
-        # Grab the entry's values
-        real_coords = (self.tree.winfo_pointerx() - self.tree.winfo_rootx(),
-                       self.tree.winfo_pointery() - self.tree.winfo_rooty())
-        item = self.tree.identify('item', *real_coords)
-        values = self.tree.item(item, 'values')
-
-        col1Lbl = Label(win, text="Value 1: ")
-        col1Ent = Entry(win)
-        col1Ent.insert(0, values[0])  # Default is column 1's current value
-        col1Lbl.grid(row=0, column=0)
-        col1Ent.grid(row=0, column=1)
-
-        col2Lbl = Label(win, text="Value 2: ")
-        col2Ent = Entry(win)
-        col2Ent.insert(0, values[1])  # Default is column 2's current value
-        col2Lbl.grid(row=0, column=2)
-        col2Ent.grid(row=0, column=3)
-
-        #col3Lbl = Label(win, text="Value 3: ")
-        #col3Ent = Entry(win)
-        #col3Ent.insert(0, values[2])  # Default is column 3's current value
-        #col3Lbl.grid(row=0, column=4)
-        #col3Ent.grid(row=0, column=5)  , col3Ent.get()
-
-        def UpdateThenDestroy():
-            if self.ConfirmEntry(self.tree, col1Ent.get(), col2Ent.get()):
-                win.destroy()
-
-        okButt = Button(win, text="Ok")
-        okButt.bind("<Button-1>", lambda e: UpdateThenDestroy())
-        okButt.grid(row=1, column=4)
-
-        canButt = Button(win, text="Cancel")
-        canButt.bind("<Button-1>", lambda c: win.destroy())
-        canButt.grid(row=1, column=5)
-
-    def ConfirmEntry(self, treeView, entry1, entry2):
-        ####
-        # Whatever validation you need
-        ####
-
-        # Grab the current index in the tree
-        currInd = treeView.index(treeView.focus())
-
-        # Remove it from the tree
-        self.DeleteCurrentEntry(treeView)
-
-        # Put it back in with the upated values
-        treeView.insert('', currInd, values=(entry1, entry2))
-
-        return True
-
-    def DeleteCurrentEntry(self, treeView):
-        curr = treeView.focus()
-
-        if '' == curr: return
-
-        treeView.delete(curr)
 
 
 class NewSession(Frame):
@@ -556,10 +508,9 @@ class NewSession(Frame):
             limit = int(self.limit_entry_var.get())
             logging.debug('User selected the mode: %s' % diffi)
             logging.debug('Player limitation is: %d' % limit)
-            gid = self.controller.user.create_game(diffi, limit)
-            if self.controller.user.joingame(gid):
-                logging.debug('Game session created!')
-                self.controller.show_frame("GameSession")
+            gid = create_game(self.controller.user, diffi, limit)
+            logging.debug('Game session created! Game id is %d.' % gid)
+            self.controller.show_frame("GameSession")
         except ValueError:
             logging.debug('User didn''t input right limit number!')
             tkMessageBox.showwarning('Value Error', 'Please input right limit number!')
@@ -605,20 +556,90 @@ class GameSession(Frame):
         # quit
         self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit)
         self.exit_button.grid(row=0, column=0, sticky=NSEW)
-        # for test **add quit button**
-        testlabel = Label(self.game_frame)
-
         # content sudoku
-
+        # example sudoku
         logging.debug('Loading *GameSession* Page success!')
 
     def quit(self):
         if tkMessageBox.askyesno('Are you sure to quit?', 'If you quit the game, you will lose all the points!'):
             logging.debug('Player has quit the game session!')
-            name = self.user.getname()
-            gid = self.user.getgameid()
-            if self.user.quit_game(name, gid):
+            if quit_game(self.controller.user):
                 self.controller.show_frame("Login")
+
+    """test part"""
+
+    def OnDoubleClick(self, e):
+        # First check if a blank space was selected
+        entryIndex = self.tree.focus()
+        if '' == entryIndex: return
+
+        # Set up window
+        win = Toplevel()
+        win.title("Edit Entry")
+        # win.attributes("-toolwindow", True)
+
+        ####
+        # Set up the window's other attributes and geometry
+        ####
+
+        # Grab the entry's values
+        real_coords = (self.tree.winfo_pointerx() - self.tree.winfo_rootx(),
+                       self.tree.winfo_pointery() - self.tree.winfo_rooty())
+        item = self.tree.identify('item', *real_coords)
+        values = self.tree.item(item, 'values')
+
+        col1Lbl = Label(win, text="Value 1: ")
+        col1Ent = Entry(win)
+        col1Ent.insert(0, values[0])  # Default is column 1's current value
+        col1Lbl.grid(row=0, column=0)
+        col1Ent.grid(row=0, column=1)
+
+        col2Lbl = Label(win, text="Value 2: ")
+        col2Ent = Entry(win)
+        col2Ent.insert(0, values[1])  # Default is column 2's current value
+        col2Lbl.grid(row=0, column=2)
+        col2Ent.grid(row=0, column=3)
+
+        # col3Lbl = Label(win, text="Value 3: ")
+        # col3Ent = Entry(win)
+        # col3Ent.insert(0, values[2])  # Default is column 3's current value
+        # col3Lbl.grid(row=0, column=4)
+        # col3Ent.grid(row=0, column=5)  , col3Ent.get()
+
+        def UpdateThenDestroy():
+            if self.ConfirmEntry(self.tree, col1Ent.get(), col2Ent.get()):
+                win.destroy()
+
+        okButt = Button(win, text="Ok")
+        okButt.bind("<Button-1>", lambda e: UpdateThenDestroy())
+        okButt.grid(row=1, column=4)
+
+        canButt = Button(win, text="Cancel")
+        canButt.bind("<Button-1>", lambda c: win.destroy())
+        canButt.grid(row=1, column=5)
+
+    def ConfirmEntry(self, treeView, entry1, entry2):
+        ####
+        # Whatever validation you need
+        ####
+
+        # Grab the current index in the tree
+        currInd = treeView.index(treeView.focus())
+
+        # Remove it from the tree
+        self.DeleteCurrentEntry(treeView)
+
+        # Put it back in with the upated values
+        treeView.insert('', currInd, values=(entry1, entry2))
+
+        return True
+
+    def DeleteCurrentEntry(self, treeView):
+        curr = treeView.focus()
+
+        if '' == curr: return
+
+        treeView.delete(curr)
 
 
 if __name__ == '__main__':

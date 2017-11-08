@@ -44,14 +44,16 @@ __RSP_UNKNCONTROL = '2' # client also use
 __RSP_DUPNAME = '3'
 __RSP_JOINFAIL = '4'
 __RSP_WRONGMOVE = '5'
-__RSP_LATEMOVE = '6'
+__RSP_LATEMOVE = '6',
+__RSP_ERRTRANSM = '7'
 __ERR_MSGS = {__RSP_OK: 'No Error',
               __RSP_BADFORMAT: 'Unknown message',
               __RSP_UNKNCONTROL: 'Unknown header',
               __RSP_DUPNAME: 'Duplicated name',
               __RSP_JOINFAIL: 'Fail to join game session',
               __RSP_WRONGMOVE: 'Player suggest wrong answer, -1 score',
-              __RSP_LATEMOVE: 'Player''s move was late'
+              __RSP_LATEMOVE: 'Player''s move was late',
+              __RSP_ERRTRANSM: 'Socket send&recv error'
               }
 
               
@@ -89,7 +91,7 @@ def publish(socket, message):
     # we may start receiving
     rsp = None
     try:
-        rsp = socket.recv
+        rsp = socket.recv(1024)
     except:
         # In case we failed in the middle of transfer we should report error
         #LOG.error('Interrupted receiving the data from %s:%d, '\
@@ -101,7 +103,7 @@ def publish(socket, message):
     
     # Check response
     r_data = rsp.split(MSG_SEP)
-    rsp_type,rsp_args = r_data[0],r_data[1:] #if len(r_data) > 1 else []
+    rsp_type,rsp_args = r_data[0],r_data[1] #if len(r_data) > 1 else []
             
     return rsp_type,rsp_args
 

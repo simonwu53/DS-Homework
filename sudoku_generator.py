@@ -36,9 +36,13 @@ def setup_sudoku(diffi, txt='/Users/simonwu/PycharmProjects/DS/DS-Homework/base.
     final = gen.board.copy()
 
     # printing out complete board (solution)
-    print("The initial board before removals was: \r\n\r\n{0}".format(initial))
+    #print("The initial board before removals was: \r\n\r\n{0}".format(initial))
     # print initial
 
     # printing out board after reduction
-    print("The generated board after removals was: \r\n\r\n{0}".format(final))
+    #print("The generated board after removals was: \r\n\r\n{0}".format(final))
     # print final
+    """make two sudokus into list"""
+    
+    """end"""
+    return initial, final
