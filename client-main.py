@@ -18,6 +18,7 @@ import ttk
 import re
 import logging
 import client_protocol
+import sudoku_generator  # for test
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s',)
 
 
@@ -56,7 +57,7 @@ class Userinfo():
         check = True
         
         message = client_protocol.__REQ_REG + client_protocol.MSG_SEP + n
-        rsp_hdr, rsp_msg = publish(self.socket,message)
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             check = True
@@ -91,7 +92,7 @@ class Userinfo():
         check= True
         
         message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + gid
-        rsp_hdr, rsp_msg = publish(self.socket,message)
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             check = True
@@ -105,7 +106,7 @@ class Userinfo():
         check= True
         
         message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + self.currentname + client_protocol.DATA_SEP + limit + client_protocol.DATA_SEP + diffi
-        rsp_hdr, rsp_msg = publish(self.socket,message)
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             gid = int(rsp_msg)
@@ -118,7 +119,7 @@ class Userinfo():
         check= True
         
         message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + place + client_protocol.DATA_SEP + number
-        rsp_hdr, rsp_msg = publish(self.socket,message)
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             check = True
@@ -131,7 +132,7 @@ class Userinfo():
         check= True
         
         message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + self.gameid
-        rsp_hdr, rsp_msg = publish(self.socket,message)
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             check = True
@@ -143,7 +144,7 @@ class Userinfo():
     def sudoku(self):
         
         message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP + ""
-        rsp_hdr, rsp_msg = publish(self.socket,message) 
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             check = True
@@ -155,7 +156,7 @@ class Userinfo():
     def user(self):
         
         message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + ""
-        rsp_hdr, rsp_msg = publish(self.socket,message) 
+        rsp_hdr, rsp_msg = client_protocol.publish(self.socket,message)
         
         if rsp_hdr == client_protocol.__RSP_OK :
             check = True
@@ -606,6 +607,8 @@ class GameSession(Frame):
         self.exit_button.grid(row=0, column=0, sticky=NSEW)
         # for test **add quit button**
         testlabel = Label(self.game_frame)
+
+        # content sudoku
 
         logging.debug('Loading *GameSession* Page success!')
 

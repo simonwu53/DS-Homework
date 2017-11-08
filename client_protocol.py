@@ -74,7 +74,7 @@ def publish(socket, message):
     # Try to Send messageuest using TCP
     n = 0   # Number of bytes sent
     try:
-        n = tcp_send(socket, message)
+        socket.sendall(message)
     except:
         # In case we failed in the middle of transfer we should report error
         #LOG.error('Interrupted sending the data to %s:%d, '\
@@ -89,7 +89,7 @@ def publish(socket, message):
     # we may start receiving
     rsp = None
     try:
-        rsp = tcp_receive(socket)
+        rsp = socket.recv
     except:
         # In case we failed in the middle of transfer we should report error
         #LOG.error('Interrupted receiving the data from %s:%d, '\
