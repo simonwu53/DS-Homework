@@ -53,3 +53,56 @@ __ERR_MSGS = {__RSP_OK: 'No Error',
               __RSP_WRONGMOVE: 'Player suggest wrong answer, -1 score',
               __RSP_LATEMOVE: 'Player''s move was late'
               }
+
+              
+def publish(socket, message):
+    
+    if len(message) < 1:
+        LOG.degug('Not enough data received from %s ' % message)
+        return __RSP_BADFORMAT
+        
+    # Try converting to utf-8
+    msg = message.encode('utf-8')
+    
+    # Extract request type and message argument
+    r_type = msg[0]
+    args = msg[1:]
+    
+    # Envelope the request
+    req = __MSG_FIELD_SEP.join([r_type]+map(str,args))
+    
+    # Try to Send request using TCP
+    n = 0   # Number of bytes sent
+    try:
+        n = tcp_send(socket, req)
+    except soc_err as e:
+        # In case we failed in the middle of transfer we should report error
+        LOG.error('Interrupted sending the data to %s:%d, '\
+                    'error: %s' % (socket+(e,)))
+        return __RSP_ERRTRANSM,[str(e)]
+
+    # Info about bytes sent
+    LOG.info('Sent [%s] request, total bytes sent [%d]'\
+             '' % (__CTR_MSGS[r_type], n))
+             
+    # We assume if we are here we succeeded with sending, and
+    # we may start receiving
+    rsp = None
+    try:
+        rsp = tcp_receive(socket)
+    except (soc_err, MBoardProtocolError) as e:
+        # In case we failed in the middle of transfer we should report error
+        LOG.error('Interrupted receiving the data from %s:%d, '\
+                  'error: %s' % (socket+(e,)))
+        return __RSP_ERRTRANSM,[str(e)]
+    
+    # Info about bytes received
+    LOG.debug('Received response [%d bytes] in total' % len(rsp))
+    
+    # Check response
+    r_data = rsp.split(__MSG_FIELD_SEP)
+    rsp_type,rsp_args = r_data[0],r_data[1:] if len(r_data) > 1 else []
+    if rsp_type != __RSP_OK:
+        LOG.error('Malformed server response [%s]' % rsp_type)
+            
+    return rsp_type,rsp_args
