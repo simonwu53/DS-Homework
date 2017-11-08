@@ -7,6 +7,9 @@ import time
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
+# message separator
+MSG_SEP = ':'
+DATA_SEP = ','
 # Protocol Recv Size ---------------------------------------------------------
 MAX_RECV_SIZE = 1024
 
@@ -16,14 +19,18 @@ __REQ_REG = '1'
 __REQ_JOIN = '2'
 __REQ_MOVE = '3'
 __REQ_QUIT = '4'
+__REQ_SUDOKU = '5'
+__REQ_USER = '6'
 # server requests(notify)
-__REQ_STARTGAME = '5'
-__REQ_WINNER = '6'
-__REQ_NOTIFY = '7'
+__REQ_STARTGAME = '7'
+__REQ_WINNER = '8'
+__REQ_NOTIFY = '9'
 __CTR_MSGS = {__REQ_REG: 'Register user name in server', # client recv OK or ___
               __REQ_MOVE: 'Player suggest one attempt', # client recv OK or ___
               __REQ_JOIN: 'Request to join game session', # client recv OK or ___
               __REQ_QUIT: 'Player leave game session', # client recv can be none
+              __REQ_SUDOKU: 'Fetch the sudoku & player limit',
+              __REQ_USER: 'Fetch the user name & scores in sudoku',
               # ---------------------------------------------
               __REQ_STARTGAME: 'Server start the game', # client recv can be none
               __REQ_WINNER: 'Game end claim winner',  # client recv winner name
