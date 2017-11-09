@@ -1,28 +1,52 @@
-"""
-MAIN STRUCTURE: GUI -> **Tkinter** contains __ pages -> {Client(base), Login, Joining, Waiting, Playing, Result}
-User data stored in class **Userinfo**. And use this class to talk to server. (Tkinter for logic, Userinfo give function)
-"""
-"""
-Every game login first, then create character and name. So in this game, we enter server info FIRST to ensure no 
-duplicated names.
-"""
-"""
+"""~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+                                          Sudoku Game Client
+
+                     Team member: Andro Lominadze, Kadir Aktas, Xatia Kilanava, Shan Wu
+
+                     cites: (finish later)
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
+"""------------------------------------------------------------------------------------------------------------
+                                          Question & Changes
+                                          
+Q: How to avoid duplicated names?                                          
+A: Every game login first, then create name. That may cause the same name in the same game. So in this game, 
+   we enter server info FIRST to ensure no duplicated names.
+   
+For next meetup:
+Q: fetch sudoku just list or string, notification sudoku, function reuse..
+
+------------------------------------------------------------------------------------------------------------"""
+
+"""------------------------------------------------------------------------------------------------------------
+                                        Personal note(delete later)
+                                        
 change data type of sudoku, userinfos -> need to change in UI function
 self.users = 'user1/0:user2/5:user3/10'
-line 92 : connection example
-line 337: example game data
-"""
+line 514: example game data
+line 630: example user data
+line 653: example sudoku data
+------------------------------------------------------------------------------------------------------------"""
 from Tkinter import *
 import tkMessageBox
 import tkFont as tkfont
 import ttk
 import re
 import logging
+import threading
 import client_protocol
 from socket import AF_INET, SOCK_STREAM, socket, timeout
 import sudoku_generator  # for test
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s', )
+
+"""------------------------------------------------------------------------------------------------------------
+                                            User info class
+
+           store local game data: current name, previous name, self score, game id, client socket.
+------------------------------------------------------------------------------------------------------------"""
 
 
 class Userinfo():
@@ -32,6 +56,8 @@ class Userinfo():
         self.score = 0
         self.gameid = 0
         self.socket = socket(AF_INET, SOCK_STREAM)
+        self.notifi_thread = []
+        self.game_frame = []
 
     """set methods"""
 
@@ -56,7 +82,20 @@ class Userinfo():
         return self.gameid
 
 
-"""communicate with server Kadir's work"""
+"""------------------------------------------------------------------------------------------------------------
+                                        The end of User info class
+------------------------------------------------------------------------------------------------------------"""
+
+"""------------------------------------------------------------------------------------------------------------
+                                    communicate with server Kadir's work
+
+Funtions: makeconnection, checkname, fetch_sudoku*, fetch_user*, joingame, create_game, attempt, quit_game
+Other func: cut_down
+
+* -> not complete
+------------------------------------------------------------------------------------------------------------"""
+
+
 def checkname(usr, n):
     rsp_hdr = ''
     check = True
@@ -64,22 +103,13 @@ def checkname(usr, n):
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, msg)
 
     if rsp_hdr == client_protocol.__RSP_OK:
+        # already set current name in UI..
         check = True
         if n not in usr.names:
             usr.names.append(n)
     else:
         check = False
     return check
-
-
-def fetchgames(usr):  # finish later (deal problem before connect to server)
-    examplegames = {1: [[0, 0, 0, 0], 3],
-                    2: [[1, 0, 1, 0], 5],
-                    3: [[0, 2, 2, 0], 2]}
-    exampleusers = {1: {'Jerry': 5, 'Tom': 0},
-                    2: {'Simon': 0},
-                    3: {'Kitty': 10, 'Michael': 12}}
-    return examplegames, exampleusers
 
 
 def makeconnection(usr, addr, port):
@@ -102,7 +132,7 @@ def makeconnection(usr, addr, port):
 def joingame(usr, gid):
     check = True
 
-    message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + str(gid)
+    message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + str(gid) + usr.currentname
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
@@ -129,10 +159,12 @@ def create_game(usr, diffi, limit):
     return gid
 
 
-def attempt(usr, place, number):
+def attempt(usr, gid, place, number):
     check = True
 
-    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + place + client_protocol.DATA_SEP + number
+    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + str(
+        gid) + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + str(
+        place) + client_protocol.DATA_SEP + str(number)
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
@@ -146,7 +178,8 @@ def attempt(usr, place, number):
 def quit_game(usr):
     check = True
 
-    message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(usr.gameid) + usr.currentname
+    message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(
+        usr.gameid) + client_protocol.DATA_SEP + usr.currentname
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
@@ -158,7 +191,7 @@ def quit_game(usr):
 
 
 def fetch_sudoku(usr):
-    message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP + ""
+    message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
@@ -170,7 +203,7 @@ def fetch_sudoku(usr):
 
 
 def fetch_user(usr):
-    message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + ""
+    message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + usr.gameid
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
@@ -189,6 +222,32 @@ def cut_down(usr, user):  # finish later (close connection)
     return True
 
 
+"""------------------------------------------------------------------------------------------------------------
+                                    The end of communication functions
+------------------------------------------------------------------------------------------------------------"""
+
+"""------------------------------------------------------------------------------------------------------------
+                                      Notification Thread function
+------------------------------------------------------------------------------------------------------------"""
+
+
+def notification_thread(usr, Frame):
+    pass
+
+
+"""------------------------------------------------------------------------------------------------------------
+                                     The end of Notification Thread
+------------------------------------------------------------------------------------------------------------"""
+
+"""------------------------------------------------------------------------------------------------------------
+                                    Client UI & operating functions
+                                    
+        Main classes: Client(base, parent), ConnectServer, Login, Joining, NewSession, GameSession
+        
+------------------------------------------------------------------------------------------------------------"""
+
+
+# **Client**---------------------------------------------------------------------------------------------------
 class Client(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
@@ -209,13 +268,13 @@ class Client(Tk):
             page_name = F.__name__
             frame = F(master=container, controller=self)
             self.frames[page_name] = frame
-
             # put all of the pages in the same location;
             # the one on the top of the stacking order
             # will be the one that is visible.
             frame.grid(row=0, column=0, sticky="nsew")
 
         self.show_frame("ConnectServer")
+        self.user.game_frame.append(self.frames[GameSession.__name__])
 
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
@@ -223,6 +282,84 @@ class Client(Tk):
         frame.tkraise()
 
 
+# **ConnectServer**---------------------------------------------------------------------------------------
+class ConnectServer(Frame):
+    def __init__(self, master, controller):
+        # init Frame
+        Frame.__init__(self, master)
+        self.pack(side="top", fill="both", expand=True)
+        self.controller = controller
+        # 'ConnectServer' Frame
+        self.consrv_frame = Frame(self, width=500, height=150, pady=50)
+        self.consrv_frame.pack()
+        # variables
+        self.IP_entry_var = StringVar()
+        self.port_entry_var = StringVar()
+
+        # head label
+        label = Label(self.consrv_frame, text='Connect to the server first:)', font=controller.title_font)
+        label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
+        # server IP label&entry
+        IP_label = Label(self.consrv_frame, text='Server IP address:')
+        self.IP_entry = Entry(self.consrv_frame, textvariable=self.IP_entry_var)
+        IP_label.grid(row=2, column=0, sticky=W)
+        self.IP_entry.grid(row=2, column=1, sticky=W)
+        self.IP_entry.focus()
+        self.IP_entry.bind('<Return>', self.enterbtn)
+        # server port label&entry
+        port_label = Label(self.consrv_frame, text='Server port:')
+        self.port_entry = Entry(self.consrv_frame, textvariable=self.port_entry_var)
+        port_label.grid(row=4, column=0, sticky=W)
+        self.port_entry.grid(row=4, column=1, sticky=W)
+        self.port_entry.bind('<Return>', self.enterbtn)
+        # submit button
+        self.submit_button = Button(self.consrv_frame, text='Connnect', command=self.connect)
+        self.submit_button.grid(row=5, column=0, columnspan=2, sticky=NSEW)
+        self.quit_button = Button(self.consrv_frame, text='Quit', command=self.quit)
+        self.quit_button.grid(row=6, column=0, columnspan=2, sticky=NSEW)
+        logging.debug('Loading *Connectserver* Page success!')
+
+    def connect(self):
+        serveraddr = ''
+        serverport = 0
+        try:
+            serveraddr = self.IP_entry.get()
+            serverport = int(self.port_entry.get())
+            # use re match
+            serveraddr_match = re.search(
+                '((?:(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d))))',
+                serveraddr)
+            if not serveraddr_match:
+                logging.debug('Address value error!')
+                tkMessageBox.showwarning('Input Error', 'Server address error!')
+                self.IP_entry_var.set('')
+                self.port_entry_var.set('')
+                self.IP_entry.focus()
+                return 0
+        except ValueError:
+            logging.debug('Port value error!')
+            tkMessageBox.showwarning('Input Error', 'Port number error!')
+            self.IP_entry_var.set('')
+            self.port_entry_var.set('')
+            self.IP_entry.focus()
+            return 0
+
+        # connect to server
+        if makeconnection(self.controller.user, serveraddr_match.group(), serverport):
+            logging.debug('Connected to server!')
+            self.controller.show_frame("Login")
+        else:
+            logging.debug('Connecting timeout! Please check your input!')
+            tkMessageBox.showwarning('Connection Error', 'Connecting failed! Please check your input!')
+            self.IP_entry_var.set('')
+            self.port_entry_var.set('')
+            self.IP_entry.focus()
+
+    def enterbtn(self, e):
+        self.connect()
+
+
+# **Login**-------------------------------------------------------------------------------------------------------------
 class Login(Frame):
     def __init__(self, master, controller):
         # init Frame
@@ -237,7 +374,7 @@ class Login(Frame):
         self.old_names_var.set('Or select your previous names')
         """login page"""
         # login frameg
-        self.login_frame = Frame(self, width=300, height=150)
+        self.login_frame = Frame(self, width=500, height=150, pady=50)
         self.login_frame.pack()
         # input label
         self.login_name_label = Label(self.login_frame, text='Please input your user name:', font=controller.title_font)
@@ -320,82 +457,8 @@ class Login(Frame):
                     self.quit()
 
 
-class ConnectServer(Frame):
-    def __init__(self, master, controller):
-        # init Frame
-        Frame.__init__(self, master)
-        self.pack(side="top", fill="both", expand=True)
-        self.controller = controller
-        # 'ConnectServer' Frame
-        self.consrv_frame = Frame(self, width=300, height=150)
-        self.consrv_frame.pack()
-        # variables
-        self.IP_entry_var = StringVar()
-        self.port_entry_var = StringVar()
-
-        # head label
-        label = Label(self.consrv_frame, text='Connect to the server first:)', font=controller.title_font)
-        label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
-        # server IP label&entry
-        IP_label = Label(self.consrv_frame, text='Server IP address:')
-        self.IP_entry = Entry(self.consrv_frame, textvariable=self.IP_entry_var)
-        IP_label.grid(row=2, column=0, sticky=W)
-        self.IP_entry.grid(row=2, column=1, sticky=W)
-        self.IP_entry.focus()
-        self.IP_entry.bind('<Return>', self.enterbtn)
-        # server port label&entry
-        port_label = Label(self.consrv_frame, text='Server port:')
-        self.port_entry = Entry(self.consrv_frame, textvariable=self.port_entry_var)
-        port_label.grid(row=4, column=0, sticky=W)
-        self.port_entry.grid(row=4, column=1, sticky=W)
-        self.port_entry.bind('<Return>', self.enterbtn)
-        # submit button
-        self.submit_button = Button(self.consrv_frame, text='Connnect', command=self.connect)
-        self.submit_button.grid(row=5, column=0, columnspan=2, sticky=NSEW)
-        self.quit_button = Button(self.consrv_frame, text='Quit', command=self.quit)
-        self.quit_button.grid(row=6, column=0, columnspan=2, sticky=NSEW)
-        logging.debug('Loading *Connectserver* Page success!')
-
-    def connect(self):
-        serveraddr = ''
-        serverport = 0
-        try:
-            serveraddr = self.IP_entry.get()
-            serverport = int(self.port_entry.get())
-            # use re match
-            serveraddr_match = re.search(
-                '((?:(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d))))',
-                serveraddr)
-            if not serveraddr_match:
-                logging.debug('Address value error!')
-                tkMessageBox.showwarning('Input Error', 'Server address error!')
-                self.IP_entry_var.set('')
-                self.port_entry_var.set('')
-                self.IP_entry.focus()
-                return 0
-        except ValueError:
-            logging.debug('Port value error!')
-            tkMessageBox.showwarning('Input Error', 'Port number error!')
-            self.IP_entry_var.set('')
-            self.port_entry_var.set('')
-            self.IP_entry.focus()
-            return 0
-
-        # connect to server
-        if makeconnection(self.controller.user, serveraddr_match.group(), serverport):
-            logging.debug('Connected to server!')
-            self.controller.show_frame("Login")
-        else:
-            logging.debug('Connecting failed! Please check your input!')
-            tkMessageBox.showwarning('Connection Error', 'Connecting failed! Please check your input!')
-            self.IP_entry_var.set('')
-            self.port_entry_var.set('')
-            self.IP_entry.focus()
-
-    def enterbtn(self, e):
-        self.connect()
-
-
+# **Joining**----------------------------------------------------------------------------------------------------------
+# after get gid, fetch game first, render game, then jump page
 class Joining(Frame):
     def __init__(self, master, controller):
         # init Frame
@@ -407,7 +470,7 @@ class Joining(Frame):
         self.welcome.set('Please select your game session!')
         """Joining page"""
         # Joing frame
-        self.join_frame = Frame(self, width=300, height=150)
+        self.join_frame = Frame(self, width=500, height=150, pady=50)
         self.join_frame.pack()
         # Slogan welcome
         label = Label(self.join_frame, textvariable=self.welcome, font=controller.title_font)
@@ -437,7 +500,20 @@ class Joining(Frame):
             gameid = int(itemtup[0])
             if joingame(self.controller.user, gameid):
                 logging.debug('User selected game ID: %d.' % gameid)
+
+                """Start notification thread"""
+                game_frame = self.controller.user.game_frame[0]
+                start_notification = threading.Thread(target=notification_thread,
+                                                      args=(self.controller.user, game_frame))
+                self.controller.user.notifi_thread.append(start_notification)
+
+                """fetch sudoku game session, user_data, rendering"""
+
                 self.controller.show_frame("GameSession")
+            else:
+                logging.debug('Game session is full!')
+                tkMessageBox.showwarning('Can not join game',
+                                         'The game session you selected is full! Please choose another one.')
         except IndexError:
             logging.debug('User didn''t select the game session!')
             tkMessageBox.showwarning('Didn''t get game ID', 'Please select at least one game or create new one!')
@@ -457,10 +533,12 @@ class Joining(Frame):
         for eachgame in splited_game:
             gameinfo = eachgame.split(client_protocol.DATA_SEP)
             self.tree.insert('', 'end', values=(gameinfo[0], gameinfo[3] + '/' + gameinfo[2]))
-        self.tree.after(15000, self.loadgames)  # refresh every 15s
-        logging.debug('Refreshing game sessions every 15s.')
+        self.tree.after(30000, self.loadgames)  # refresh every 30s
+        logging.debug('Refreshing game sessions every 30s.')
 
 
+# **NewSession**-----------------------------------------------------------------------------------------------------
+# fetch game first, then jump
 class NewSession(Frame):
     def __init__(self, master, controller):
         # init Frame
@@ -471,7 +549,7 @@ class NewSession(Frame):
         self.welcome = StringVar()
         self.welcome.set('Create your sudoku!')
         # Joing frame
-        self.new_frame = Frame(self, width=300, height=150)
+        self.new_frame = Frame(self, width=500, height=150, pady=50)
         self.new_frame.pack()
         # Slogan welcome
         label = Label(self.new_frame, textvariable=self.welcome, font=controller.title_font)
@@ -484,7 +562,7 @@ class NewSession(Frame):
         self.limit_label = Label(self.new_frame, text='Player limitation:')
         self.limit_label.grid(row=2, column=0)
         # optionmenu
-        DIFFICULTY = ['easy', 'medium', 'hard', 'extreme']
+        DIFFICULTY = ['easy', 'medium', 'hard']
         self.diffi_var = StringVar()
         self.option_menu = OptionMenu(self.new_frame, self.diffi_var, *DIFFICULTY)
         self.option_menu.grid(row=1, column=1, sticky=NSEW)
@@ -505,12 +583,26 @@ class NewSession(Frame):
     def create_game(self):
         try:
             diffi = self.diffi_var.get()
-            limit = int(self.limit_entry_var.get())
+            limit = self.limit_entry_var.get()
             logging.debug('User selected the mode: %s' % diffi)
             logging.debug('Player limitation is: %d' % limit)
             gid = create_game(self.controller.user, diffi, limit)
-            logging.debug('Game session created! Game id is %d.' % gid)
-            self.controller.show_frame("GameSession")
+            if gid == -1:
+                logging.debug('An error occured when creating game!')
+                tkMessageBox.showwarning('GID Value Error', 'Please create game later!')
+            else:
+                logging.debug('Game session created! Game id is %d.' % gid)
+
+                """fetch sudoku game, user_data, rendering"""
+
+
+                """Start notification thread"""
+                game_frame =  self.controller.user.game_frame[0]
+                start_notification = threading.Thread(target=notification_thread,
+                args=(self.controller.user, game_frame))
+                self.controller.user.notifi_thread.append(start_notification)
+
+                self.controller.show_frame("GameSession")
         except ValueError:
             logging.debug('User didn''t input right limit number!')
             tkMessageBox.showwarning('Value Error', 'Please input right limit number!')
@@ -525,6 +617,8 @@ class NewSession(Frame):
         self.create_game()
 
 
+# **GameSession**---------------------------------------------------------------------------------------------------
+# update_score update_sudoku -> user, puzzle data type
 class GameSession(Frame):
     def __init__(self, master, controller):
         # init Frame
@@ -533,32 +627,142 @@ class GameSession(Frame):
         self.controller = controller
         # get user info
         self.user = self.controller.user
+        self.answer = []
+        self.puzzle = []
         # welcome string
         self.welcome = StringVar()
         self.welcome.set('Waiting other players!')
-        # Joing frame & other frames
+
+        """Joing frame, header, content, footer frames"""
         self.game_frame = Frame(self)
-        self.game_header_frame = Frame(self.game_frame, width=300, height=50)
-        self.game_content_frame = Frame(self.game_frame, width=300, height=150)
-        self.game_footer_frame = Frame(self.game_frame, width=300, height=50)
+        self.game_header_frame = Frame(self.game_frame, width=500, height=100)
+        self.game_content_frame = Frame(self.game_frame, width=500, height=300)
+        self.game_footer_frame = Frame(self.game_frame, width=500, height=50)
 
         self.game_frame.pack()
-        self.game_header_frame.grid(row=0, column=0, sticky=NSEW)
-        self.game_content_frame.grid(row=1, column=0, sticky=NSEW)
-        self.game_footer_frame.grid(row=2, column=0, sticky=NSEW)
+        self.game_header_frame.grid(row=0, column=0, sticky=NSEW, padx=50)
+        self.game_content_frame.grid(row=1, column=0, sticky=NSEW, padx=50)
+        self.game_footer_frame.grid(row=2, column=0, sticky=NSEW, padx=50)
         self.game_header_frame.grid_propagate(0)
         self.game_content_frame.grid_propagate(0)
         self.game_footer_frame.grid_propagate(0)
+
+        """header frame"""
         # Slogan welcome
         label = Label(self.game_header_frame, textvariable=self.welcome, font=controller.title_font)
         label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
-        # footer button
+        # fetch & display users
+        self.user_data = 'user1/0:user2/5:user3/10'  # example user data
+        self.score_labels = []
+        score_board = self.user_data.split(client_protocol.MSG_SEP)
+        row, column = 1, 0
+        for each_user in score_board:
+            name, score = each_user.split(client_protocol.DATA_SEP)
+            name_label = Label(self.game_header_frame, text=name + ':')
+            score_label = Label(self.game_header_frame, text=score)
+            name_label.grid(row=row, column=column % 2, sticky=E)
+            column += 1
+            score_label.grid(row=row, column=column % 2, sticky=W)
+            row += 1
+            column += 1
+            self.score_labels.append(name_label)
+            self.score_labels.append(score_label)
+
+        """footer frame"""
+        # submit
+        self.submit_button = Button(self.game_footer_frame, text='Submit', command=self.submit_move)
+        self.submit_button.grid(row=0, column=0, columnspan=2, sticky=NSEW)
         # quit
         self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit)
-        self.exit_button.grid(row=0, column=0, sticky=NSEW)
-        # content sudoku
-        # example sudoku
+        self.exit_button.grid(row=0, column=1, columnspan=2, sticky=NSEW)
+
+        """content frame"""
+        # sudoku (label & entry)
+        self.generate_example()
+        count = 0
+        self.entries = {}
+        self.puzzle_labels = []
+        for i in range(9):
+            for j in range(9):
+                if self.puzzle[count] == '_':
+                    insert_entry = Entry(self.game_content_frame, width=3)
+                    insert_entry.grid(row=i, column=j, sticky=NSEW)
+                    self.entries[insert_entry] = count
+                else:
+                    insert_label = Label(self.game_content_frame, text=self.puzzle[count])
+                    insert_label.grid(row=i, column=j, sticky=NSEW)
+                    self.puzzle_labels.append(insert_label)
+                count += 1
+
         logging.debug('Loading *GameSession* Page success!')
+
+    def update_scores(self, users):  # user string (or list)
+        # delete old widgets
+        for eachlabel in self.score_labels:
+            eachlabel.destory()
+        # update new widgets
+        self.user_data = users
+        self.score_labels = []
+        score_board = self.user_data.split(client_protocol.MSG_SEP)
+        row, column = 1, 0
+        for each_user in score_board:
+            name, score = each_user.split(client_protocol.DATA_SEP)
+            name_label = Label(self.game_header_frame, text=name + ':')
+            score_label = Label(self.game_header_frame, text=score)
+            name_label.grid(row=row, column=column % 2, sticky=E)
+            column += 1
+            score_label.grid(row=row, column=column % 2, sticky=W)
+            row += 1
+            column += 1
+            self.score_labels.append(name_label)
+            self.score_labels.append(score_label)
+        pass
+
+    def update_sudoku(self, puzzle):  # puzzle list
+        # delete old widgets
+        for eachlabel in self.puzzle_labels:
+            eachlabel.destory()
+        entry_widgets = self.entries.keys()
+        for eachentry in entry_widgets:
+            eachentry.destory()
+        # update new widgets
+        self.puzzle = []
+        self.entries = {}
+        self.puzzle_labels = []
+        for n in puzzle:
+            self.puzzle.append(n)
+        count = 0
+        for i in range(9):
+            for j in range(9):
+                if self.puzzle[count] == '_':
+                    insert_entry = Entry(self.game_content_frame, width=3, textvariable=self.entry_var)
+                    insert_entry.grid(row=i, column=j, sticky=NSEW)
+                    self.entries[insert_entry] = count
+                else:
+                    insert_label = Label(self.game_content_frame, text=self.puzzle[count])
+                    insert_label.grid(row=i, column=j, sticky=NSEW)
+                    self.puzzle_labels.append(insert_label)
+                count += 1
+
+    def submit_move(self):  # entries={entry:pos, } modified_entry={entry:value}
+        self.modified_entries = {}
+        entries = self.entries.keys()
+        for eachentry in entries:
+            value = eachentry.get()
+            if value != '':
+                self.modified_entries[eachentry] = value
+
+        if len(self.modified_entries) > 1:
+            tkMessageBox.showwarning('Too many entries', 'Please make exactly one entry!')
+            self.entry_var.set('')
+            return 0
+
+        entries = self.modified_entries.keys()
+        position = self.entries[entries[0]]
+        inputvalue = self.modified_entries[entries[0]]
+        print 'you inputed %s, postion: %d' % (inputvalue, position)
+        return 1
+
 
     def quit(self):
         if tkMessageBox.askyesno('Are you sure to quit?', 'If you quit the game, you will lose all the points!'):
@@ -566,82 +770,20 @@ class GameSession(Frame):
             if quit_game(self.controller.user):
                 self.controller.show_frame("Login")
 
-    """test part"""
-
-    def OnDoubleClick(self, e):
-        # First check if a blank space was selected
-        entryIndex = self.tree.focus()
-        if '' == entryIndex: return
-
-        # Set up window
-        win = Toplevel()
-        win.title("Edit Entry")
-        # win.attributes("-toolwindow", True)
-
-        ####
-        # Set up the window's other attributes and geometry
-        ####
-
-        # Grab the entry's values
-        real_coords = (self.tree.winfo_pointerx() - self.tree.winfo_rootx(),
-                       self.tree.winfo_pointery() - self.tree.winfo_rooty())
-        item = self.tree.identify('item', *real_coords)
-        values = self.tree.item(item, 'values')
-
-        col1Lbl = Label(win, text="Value 1: ")
-        col1Ent = Entry(win)
-        col1Ent.insert(0, values[0])  # Default is column 1's current value
-        col1Lbl.grid(row=0, column=0)
-        col1Ent.grid(row=0, column=1)
-
-        col2Lbl = Label(win, text="Value 2: ")
-        col2Ent = Entry(win)
-        col2Ent.insert(0, values[1])  # Default is column 2's current value
-        col2Lbl.grid(row=0, column=2)
-        col2Ent.grid(row=0, column=3)
-
-        # col3Lbl = Label(win, text="Value 3: ")
-        # col3Ent = Entry(win)
-        # col3Ent.insert(0, values[2])  # Default is column 3's current value
-        # col3Lbl.grid(row=0, column=4)
-        # col3Ent.grid(row=0, column=5)  , col3Ent.get()
-
-        def UpdateThenDestroy():
-            if self.ConfirmEntry(self.tree, col1Ent.get(), col2Ent.get()):
-                win.destroy()
-
-        okButt = Button(win, text="Ok")
-        okButt.bind("<Button-1>", lambda e: UpdateThenDestroy())
-        okButt.grid(row=1, column=4)
-
-        canButt = Button(win, text="Cancel")
-        canButt.bind("<Button-1>", lambda c: win.destroy())
-        canButt.grid(row=1, column=5)
-
-    def ConfirmEntry(self, treeView, entry1, entry2):
-        ####
-        # Whatever validation you need
-        ####
-
-        # Grab the current index in the tree
-        currInd = treeView.index(treeView.focus())
-
-        # Remove it from the tree
-        self.DeleteCurrentEntry(treeView)
-
-        # Put it back in with the upated values
-        treeView.insert('', currInd, values=(entry1, entry2))
-
-        return True
-
-    def DeleteCurrentEntry(self, treeView):
-        curr = treeView.focus()
-
-        if '' == curr: return
-
-        treeView.delete(curr)
+    def generate_example(self):
+        # example sudoku
+        answer, puzzle = sudoku_generator.setup_sudoku('easy')
+        for n in answer:
+            self.answer.append(n)
+        for n in puzzle:
+            self.puzzle.append(n)
 
 
+"""-----------------------------------------------------------------------------------------------------------------
+                                        Client Main Function
+                                        
+                                create client instance, run UI in loop
+-----------------------------------------------------------------------------------------------------------------"""
 if __name__ == '__main__':
     app = Client()
     try:

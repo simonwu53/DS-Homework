@@ -37,12 +37,23 @@ def setup_sudoku(diffi, txt='/Users/simonwu/PycharmProjects/DS/DS-Homework/base.
 
     # printing out complete board (solution)
     #print("The initial board before removals was: \r\n\r\n{0}".format(initial))
-    # print initial
+    #print initial
 
     # printing out board after reduction
     #print("The generated board after removals was: \r\n\r\n{0}".format(final))
-    # print final
+    #print final
     """make two sudokus into list"""
-    
+    answer, puzzle = [], []
+    initial_row = str(initial).split('\r\n')
+    final_row = str(final).split('\r\n')
+    for eachrow in initial_row:
+        initial_elements = eachrow.split('|')
+        for i in initial_elements:
+            answer.append(i)
+    for eachrow in final_row:
+        final_elements = eachrow.split('|')
+        for i in final_elements:
+            puzzle.append(i)
     """end"""
-    return initial, final
+    return answer, puzzle
+
