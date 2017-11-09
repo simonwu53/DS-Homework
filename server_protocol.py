@@ -1,13 +1,24 @@
 import logging
 import time
-
+import numpy as np
+import sudoku_generator
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 # Protocol Recv Size ---------------------------------------------------------
-TCP_RECEIVE_BUFFER_SIZE=1024*1024
-MAX_PDU_SIZE = 200*1024*1024
-
+#TCP_RECEIVE_BUFFER_SIZE=1024*1024
+#MAX_PDU_SIZE = 200*1024*1024
+# dictionaries
+game = {}
+MSG_SEP = ':'
+DATA_SEP= '/'
+user_names={} #here are stored all the usernames
+score={} #here username and score will be stored
+sudoku = [] #here will be stored sudoku and player limits
+user={} #this dictionary contains game_id as key which correspondes to the players with their scores
+id=0 # game id , it will be increased as new games are created one by one
+#sudoku_generator=[]
+sudoku_answer={}
 # Requests --------------------------------------------------------------------
 # client requests
 __REQ_REG = '1'
@@ -44,82 +55,132 @@ __ERR_MSGS = {__RSP_OK: 'No Error',
               __RSP_WRONGMOVE: 'Player suggest wrong answer, -1 score',
               __RSP_LATEMOVE: 'Player''s move was late'
               }
-# Common methods --------------------------------------------------------------
-def tcp_send(sock,data):
-    '''Send data using TCP socket. When the data is sent, close the TX pipe
-    @param sock: TCP socket, used to send/receive
-    @param data: The data to be sent
-    @returns integer,  n bytes sent and error if any
-    @throws socket.errror in case of transmission error
+def server_process(message):
+    '''Process the client's message,
+        @param message: string, protocol data unit received from client
+                @returns string, response to send to client
     '''
-    sock.sendall(data)
-    sock.shutdown(SHUT_WR)
-    return len(data)
+    LOG.debug('Received request [%d bytes] in total' % len(message))
+    if len(message) < 2:
+        LOG.degug('Not enough data received from %s ' % message)
+        return __RSP_BADFORMAT
+    LOG.debug('Request control code (%s)' % message[0])
+    if message.startswith(__REQ_REG + MSG_SEP):
+        msg = message[2:]
+        if msg in user_names:
+            return __RSP_DUPNAME
+        else:
+            user_names.append(msg)
+            return __RSP_OK
+    if message.startswith(__REQ_JOIN + MSG_SEP): #here is 2 step a) user wants to join existing game or b)creating new game
+        msg=message[2:]
+        split_msg=msg.split(',')
+        var=split_msg[0]
+        if var.isdigit():
+             #if user wants to join existing game
+            game_id=int(var)
+            if(len(user)>game[game_id][1]):
+                return __RSP_JOINFAIL # limit is already reached at this game session
+            user[game_id][name] =0 #otherwise user is registered to the wanted game session and started from the score 0.
+            return __RSP_OK
+        else:# else user wants to create new session
+            name = split_msg[0]
+            limit = split_msg[1]
+            difficulty = split_msg[2]
+            id+=1 # game ides will start from 1
+            str_id=str(id)
+            sudoku_answer, generated_sudoku=sudoku_generator.setup_sudoku(difficulty)
+            sudoku.append(generated_sudoku)
+            sudoku.append(limit)
+            game[id]=sudoku
+            answers[id]=sudoku_answer
+            return __MSG_SEP.join((__RSP_OK,)+str_id)
+    if message.startswith(REQ_SUDOKU + MSG_SEP):
+        for key in game:
 
-# Field separator for sending multiple values ---------------------------------
-__MSG_FIELD_SEP = ':'
-# Exceptions ------------------------------------------------------------------
-class MBoardProtocolError(Exception):
-    '''Should be thrown internally on client or server while receiving the
-    data, in case remote end-point attempts to not follow the MBoard protocol
-    '''
-    def __init__(self,msg):
-        Exception.__init__(self,msg)
-# Common methods --------------------------------------------------------------
-def tcp_send(sock,data):
-    '''Send data using TCP socket. When the data is sent, close the TX pipe
-    @param sock: TCP socket, used to send/receive
-    @param data: The data to be sent
-    @returns integer,  n bytes sent and error if any
-    @throws socket.errror in case of transmission error
-    '''
-    sock.sendall(data)
-    sock.shutdown(SHUT_WR)
-    return len(data)
 
-def tcp_receive(sock,buffer_size=TCP_RECEIVE_BUFFER_SIZE):
-    '''Receive the data using TCP receive buffer.
-    TCP splits the big data into blocks automatically and ensures,
-    that the blocks are delivered in the same order they were sent.
-    Appending the received blocks into big message is usually done manually.
-    In this method the receiver also expects that the sender will close
-    the RX pipe after sending, denoting the end of sending
-    @param buffer_size: integer, the size of the block to receive in one
-            iteration of the receive loop
-    @returns string, data received
-    @throws socket.errror in case of transmission error,
-            MBoard PDU size exceeded in case of client attempting to
-            send more data the MBoard protocol allows to send in one PDU
-            (MBoard request or response) - MAX_PDU_SIZE
-    '''
-    m = ''      # Here we collect the received message
-    # Receive loop
-    while 1:
-        # Receive one block of data according to receive buffer size
-        block = sock.recv(TCP_RECEIVE_BUFFER_SIZE)
-        # If the remote end-point did issue shutdown on the socket
-        # using  SHUT_WR flag, the local end point will receive and
-        # empty string in all attempts of recv method. Therefore we
-        # say we stop receiving once the first empty block was received
-        if len(block) <= 0:
-            break
-        # There is no actual limit how big the message (m) can grow
-        # during the block delivery progress. Still we have to take
-        # into account amount of RAM on server when dealing with big
-        # messages, and one point introduce a reasonable limit of
-        # MBoard PDU (MBoard request/responses).
-        if ( len(m) + len(block) ) >= MAX_PDU_SIZE:
-            # Close the RX pipe to prevent the remote end-point of sending
-            # more data
-            sock.shutdown(SHUT_RD)
-            # Garbage collect the unfinished message (m) and throw exception
-            del m
-            raise \
-                MBoardProtocolError( \
-                    'Remote end-point tried to exceed the MAX_PDU_SIZE'\
-                    'of MBoard protocol'\
-                )
 
-        # Appending the blocks, assembling the message
-        m += block
-    return m
+
+
+    #if message.startswith(__REQ_USER + MSG_SEP):
+    #if message.startswith(__REQ_MOVE + MSG_SEP):
+    #    msg=message[2:]
+
+
+
+
+
+
+
+        LOG.debug('Registering new user ')
+        LOG.info('Published new message, uuid: %d' % m_id)
+        return __RSP_OK
+    elif message.startswith(__REQ_LAST + __MSG_FIELD_SEP):
+        s = message[2:]
+        try:
+            n = int(s)
+            LOG.debug('New message listing request from %s:%d, '\
+                      'messages %d' % (source+(n,)))
+        except ValueError:
+            LOG.debug('Integer required, %s received' % s)
+            return __RSP_BADFORMAT
+        ids = board.last(n)
+        LOG.debug('Last %d ids: %s ' % (n,','.join(map(str,ids))))
+        return __MSG_FIELD_SEP.join((__RSP_OK,)+tuple(map(str,ids)))
+    elif message.startswith(__REQ_GET + __MSG_FIELD_SEP):
+        s = message[2:]
+        try:
+            m_id = int(s)
+            LOG.debug('New message request by id from %s:%d, '\
+                      'id %d' % (source+(m_id,)))
+        except ValueError:
+            LOG.debug('Integer required, %s received' % s)
+            return __RSP_BADFORMAT
+        m = board.get(m_id)
+        if m == None:
+            LOG.debug('No messages by iD: %d' % m_id)
+            return __RSP_MSGNOTFOUND
+        m = map(str,m)
+        return __MSG_FIELD_SEP.join((__RSP_OK,)+tuple(m))
+    elif message.startswith(__REQ_GET_N_LAST + __MSG_FIELD_SEP):
+        s = message[2:]
+        try:
+            n = int(s)
+            LOG.debug('Client %s:%d requests %s last'\
+                      'messages' % (source+('all' if n <= 0 else '%d' % n,)))
+        except ValueError:
+            LOG.debug('Integer required, %s received' % s)
+            return __RSP_BADFORMAT
+        # Get last N ids
+        ids = board.last(n)
+        # Get messages by ids
+        msgs = map(board.get,ids)
+        # Turn everything to string, use space to separate message meta-info
+        #  [ "<timestamp> <ip> <port> <message>", ... ]
+        msgs = map(lambda x: ' '.join(map(str,x)),msgs)
+        return __MSG_FIELD_SEP.join((__RSP_OK,)+tuple(msgs))
+
+    #STEP TWO++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    elif message.startswith(__REQ_sendfile+__MSG_FIELD_SEP):
+        s=message[2:]
+
+        if os.path.exists(s):
+            #exists such file
+            print' such file already exists in the directory'
+            return __RSP_FILE_EXIST
+        else:
+            #not exists
+            sock.sendall(__RSP_OK)
+            rsp=tcp_receive(sock)
+            with open(s, 'w') as file_to_save:
+                file_to_save.write(rsp)
+            file_to_save.close()
+            print' file sucesfully uploaded '
+            return __RSP_OK
+
+
+
+
+    else:
+        LOG.debug('Unknown control message received: %s ' % message)
+        return __RSP_UNKNCONTROL
