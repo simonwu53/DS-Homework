@@ -159,11 +159,10 @@ def create_game(usr, diffi, limit):
     return gid
 
 
-def attempt(usr, gid, place, number):
+def attempt(usr, place, number):
     check = True
 
-    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + str(
-        gid) + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + str(
+    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + usr.gameid + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + str(
         place) + client_protocol.DATA_SEP + str(number)
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
@@ -218,7 +217,7 @@ def fetch_user(usr):
     return check, user, scores
 
 
-def cut_down(usr, user):  # finish later (close connection)
+def cut_down(usr):  # finish later (close connection)
     return True
 
 
@@ -231,8 +230,41 @@ def cut_down(usr, user):  # finish later (close connection)
 ------------------------------------------------------------------------------------------------------------"""
 
 
-def notification_thread(usr, Frame):
-    pass
+def notification_thread(usr, f):
+    # waiting to receive msg
+    logging.debug('Notification Thread started')
+    s = usr.socket
+    logging.debug('Waiting for notifications!')
+    data = s.recv(client_protocol.MAX_RECV_SIZE)
+
+    # check received msg
+    logging.debug('Received request [%d bytes] in total' % len(data))
+    if len(data) < 2:
+        logging.debug('Not enough data received from %s ' % data)
+        return client_protocol.__RSP_BADFORMAT
+    logging.debug('Request control code (%s)' % data[0])
+
+    """process server request and reply"""
+    # Header 1: start the game
+    if data.startswith(client_protocol.__REQ_STARTGAME + client_protocol.MSG_SEP):
+        # reply
+        s.sendall(client_protocol.__RSP_OK+client_protocol.MSG_SEP)
+        logging.debug('Game session has started')
+        # change game UI
+        f.submit_button.configure(state='normal')
+        return 0
+
+    # Header 2: end the game
+    elif data.startswith(client_protocol.__REQ_WINNER + client_protocol.MSG_SEP):
+        pass
+
+    # Header 3: Change player info
+    elif data.startswith(client_protocol.__REQ_NOTIFY + client_protocol.MSG_SEP):
+        pass
+
+    # Header 4: Update sudoku
+    elif data.startswith(client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP):
+        pass
 
 
 """------------------------------------------------------------------------------------------------------------
@@ -290,7 +322,7 @@ class ConnectServer(Frame):
         self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # 'ConnectServer' Frame
-        self.consrv_frame = Frame(self, width=500, height=150, pady=50)
+        self.consrv_frame = Frame(self, width=350, height=150, pady=75)
         self.consrv_frame.pack()
         # variables
         self.IP_entry_var = StringVar()
@@ -374,7 +406,7 @@ class Login(Frame):
         self.old_names_var.set('Or select your previous names')
         """login page"""
         # login frameg
-        self.login_frame = Frame(self, width=500, height=150, pady=50)
+        self.login_frame = Frame(self, width=350, height=150, pady=75)
         self.login_frame.pack()
         # input label
         self.login_name_label = Label(self.login_frame, text='Please input your user name:', font=controller.title_font)
@@ -452,7 +484,7 @@ class Login(Frame):
                 logging.debug('Bye:)')
                 self.quit()
             else:
-                if cut_down(self.controller.user, name):
+                if cut_down(self.controller.user):
                     logging.debug('Bye:)')
                     self.quit()
 
@@ -470,7 +502,7 @@ class Joining(Frame):
         self.welcome.set('Please select your game session!')
         """Joining page"""
         # Joing frame
-        self.join_frame = Frame(self, width=500, height=150, pady=50)
+        self.join_frame = Frame(self, width=350, height=150, pady=75)
         self.join_frame.pack()
         # Slogan welcome
         label = Label(self.join_frame, textvariable=self.welcome, font=controller.title_font)
@@ -549,7 +581,7 @@ class NewSession(Frame):
         self.welcome = StringVar()
         self.welcome.set('Create your sudoku!')
         # Joing frame
-        self.new_frame = Frame(self, width=500, height=150, pady=50)
+        self.new_frame = Frame(self, width=350, height=150, pady=75)
         self.new_frame.pack()
         # Slogan welcome
         label = Label(self.new_frame, textvariable=self.welcome, font=controller.title_font)
@@ -635,14 +667,14 @@ class GameSession(Frame):
 
         """Joing frame, header, content, footer frames"""
         self.game_frame = Frame(self)
-        self.game_header_frame = Frame(self.game_frame, width=500, height=100)
-        self.game_content_frame = Frame(self.game_frame, width=500, height=300)
-        self.game_footer_frame = Frame(self.game_frame, width=500, height=50)
+        self.game_header_frame = Frame(self.game_frame, width=350, height=100)
+        self.game_content_frame = Frame(self.game_frame, width=350, height=300)
+        self.game_footer_frame = Frame(self.game_frame, width=100, height=50, padx=100)
 
         self.game_frame.pack()
-        self.game_header_frame.grid(row=0, column=0, sticky=NSEW, padx=50)
-        self.game_content_frame.grid(row=1, column=0, sticky=NSEW, padx=50)
-        self.game_footer_frame.grid(row=2, column=0, sticky=NSEW, padx=50)
+        self.game_header_frame.grid(row=0, column=0, sticky=NSEW)
+        self.game_content_frame.grid(row=1, column=0, sticky=NSEW)
+        self.game_footer_frame.grid(row=2, column=0, sticky=NSEW)
         self.game_header_frame.grid_propagate(0)
         self.game_content_frame.grid_propagate(0)
         self.game_footer_frame.grid_propagate(0)
@@ -650,7 +682,7 @@ class GameSession(Frame):
         """header frame"""
         # Slogan welcome
         label = Label(self.game_header_frame, textvariable=self.welcome, font=controller.title_font)
-        label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
+        label.grid(row=0, column=0, columnspan=16, sticky=NSEW, padx=(75, 75))
         # fetch & display users
         self.user_data = 'user1/0:user2/5:user3/10'  # example user data
         self.score_labels = []
@@ -660,21 +692,20 @@ class GameSession(Frame):
             name, score = each_user.split(client_protocol.DATA_SEP)
             name_label = Label(self.game_header_frame, text=name + ':')
             score_label = Label(self.game_header_frame, text=score)
-            name_label.grid(row=row, column=column % 2, sticky=E)
-            column += 1
-            score_label.grid(row=row, column=column % 2, sticky=W)
-            row += 1
-            column += 1
+            name_label.grid(row=row, column=column, columnspan=2, sticky=NSEW)
+            score_label.grid(row=row+1, column=column, columnspan=2, sticky=NSEW)
+            column += 2
             self.score_labels.append(name_label)
             self.score_labels.append(score_label)
 
         """footer frame"""
         # submit
-        self.submit_button = Button(self.game_footer_frame, text='Submit', command=self.submit_move)
-        self.submit_button.grid(row=0, column=0, columnspan=2, sticky=NSEW)
+        self.submit_button = Button(self.game_footer_frame, text='Submit', command=self.submit_move, width=6)
+        self.submit_button.grid(row=0, column=0, sticky=NSEW)
+        self.submit_button.configure(state='disabled')  # waiting for game start
         # quit
-        self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit)
-        self.exit_button.grid(row=0, column=1, columnspan=2, sticky=NSEW)
+        self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit, width=6)
+        self.exit_button.grid(row=0, column=1, sticky=NSEW)
 
         """content frame"""
         # sudoku (label & entry)
@@ -735,7 +766,7 @@ class GameSession(Frame):
         for i in range(9):
             for j in range(9):
                 if self.puzzle[count] == '_':
-                    insert_entry = Entry(self.game_content_frame, width=3, textvariable=self.entry_var)
+                    insert_entry = Entry(self.game_content_frame, width=3)
                     insert_entry.grid(row=i, column=j, sticky=NSEW)
                     self.entries[insert_entry] = count
                 else:
@@ -754,13 +785,16 @@ class GameSession(Frame):
 
         if len(self.modified_entries) > 1:
             tkMessageBox.showwarning('Too many entries', 'Please make exactly one entry!')
-            self.entry_var.set('')
+            return 0
+        elif len(self.modified_entries) == 0:
+            tkMessageBox.showwarning('No entry', 'Please fill one entry first!')
             return 0
 
         entries = self.modified_entries.keys()
         position = self.entries[entries[0]]
         inputvalue = self.modified_entries[entries[0]]
-        print 'you inputed %s, postion: %d' % (inputvalue, position)
+        if attempt(self.user, position, inputvalue):
+            print 'you inputed %s, postion: %d' % (inputvalue, position)
         return 1
 
 
