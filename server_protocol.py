@@ -78,8 +78,9 @@ def server_process(message):
         var=split_msg[0]
         if var.isdigit():
              #if user wants to join existing game
+            name=split_msg[1]
             game_id=int(var)
-            if(len(user)>game[game_id][1]):
+            if(len(user[game_id])>game[game_id][1]):
                 return __RSP_JOINFAIL # limit is already reached at this game session
             user[game_id][name] =0 #otherwise user is registered to the wanted game session and started from the score 0.
             return __RSP_OK
@@ -94,15 +95,30 @@ def server_process(message):
             sudoku.append(limit)
             game[id]=sudoku
             answers[id]=sudoku_answer
-            return __MSG_SEP.join((__RSP_OK,)+str_id)
+            score[name] = 0  # add user 1
+            User[id] = score
+            return MSG_SEP.join((__RSP_OK,)+str_id)
     if message.startswith(REQ_SUDOKU + MSG_SEP):
-        for key in game:
+        msg = []
+        for key in game,user:
+            numb_players=str(len(user[key]))
+            msg+=msg+MSG_SEP+str(key)+DATA_SEP+list(''.join(game[key][0]))+DATA_SEP+game[key][1]+DATA_SEP+numb_players
+
+        return __RSP_OK+msg
+
+    if message.startswith(__REQ_USER + MSG_SEP):
+        msg = []
+        for key in user:
+            for user_name in user[key]:
+                msg+=MSG_SEP+user_name+user[key][user_name]
+
+        return __RSP_OK+msg
 
 
 
 
 
-    #if message.startswith(__REQ_USER + MSG_SEP):
+
     #if message.startswith(__REQ_MOVE + MSG_SEP):
     #    msg=message[2:]
 
