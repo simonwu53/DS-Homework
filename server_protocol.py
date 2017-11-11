@@ -78,13 +78,11 @@ def winner(gameid):
     #find the winner 
     user_dict   = user[gameid]
     winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]
-    winner_list = {winner_user: user[winner_user] }
     
     #assemble the message
-    winner = json.dumps(winner_list)    #convert dict to string
-    message = __REQ_WINNER + MSG_SEP + winner
+    message = __REQ_WINNER + MSG_SEP + winner_user + DATA_SEP + str(user[winner_user][0]) 
     
-    return message  
+    return message
     
 def server_process(message,client_socket,server_socket):
     '''Process the client's message,
