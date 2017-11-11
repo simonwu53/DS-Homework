@@ -3,7 +3,7 @@ import time
 import numpy as np
 import sudoku_generator
 import operator
-
+from threading import Thread
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
@@ -110,7 +110,7 @@ def sudoku(gameid):
     
     return message
     
-def notification_thread(message,gameid)
+def notification_thread(message,gameid):
 
     #find client sockets by id: in user dict
     user_dict =  user[gameid]
@@ -129,15 +129,15 @@ def server_process(message, client_socket, server_socket):
     LOG.debug('Received request [%d bytes] in total' % len(message))
     if len(message) < 2:
         LOG.degug('Not enough data received from %s ' % message)
-        return __RSP_BADFORMAT
+        return __RSP_BADFORMAT,None,None
     LOG.debug('Request control code (%s)' % message[0])
     if message.startswith(__REQ_REG + MSG_SEP):
         msg = message[2:]
         if msg in user_names:
-            return __RSP_DUPNAME
+            return __RSP_DUPNAME,None,None
         else:
             user_names.append(msg)
-            return __RSP_OK
+            return __RSP_OK,None,None
     if message.startswith(
                     __REQ_JOIN + MSG_SEP):  # here is 2 step a) user wants to join existing game or b)creating new game
         msg = message[2:]
@@ -148,10 +148,16 @@ def server_process(message, client_socket, server_socket):
             name = split_msg[1]
             game_id = int(var)
             if (len(user[game_id]) > game[game_id][1]):
-                return __RSP_JOINFAIL  # limit is already reached at this game session
-            user[game_id][name] = [0,
-                                   client_socket]  # otherwise user is registered to the wanted game session and started from the score 0.
-            return __RSP_OK
+                return __RSP_JOINFAIL ,None,None # limit is already reached at this game session
+            user[game_id][name] = [0,client_socket]  # otherwise user is registered to the wanted game session and started from the score 0.
+            if (len(user[game_id]) == game[game_id][1]): #if limit is full
+                message=startgame()
+                t=Thread(target=notification_thread, args=(message, game_id))
+                return __RSP_OK,t,None
+            else:# notify player joined
+                message = notify(game_id)
+                t = Thread(target=notification_thread, args=(message, game_id))
+                return __RSP_OK,t,None
         else:  # else user wants to create new session
             name = split_msg[0]
             limit = split_msg[1]
@@ -165,7 +171,7 @@ def server_process(message, client_socket, server_socket):
             answers[id] = sudoku_answer
             score[name] = [0, client_socket]  # saving score and client socket
             user[id][name] = score
-            return MSG_SEP.join((__RSP_OK,) + tuple(str_id))
+            return __RSP_OK+MSG_SEP+str_id,None,None
 
     if message.startswith(REQ_SUDOKU + MSG_SEP):
         msg = ''
@@ -173,7 +179,7 @@ def server_process(message, client_socket, server_socket):
             numb_players = str(len(user[key]))
             msg += str(key) + DATA_SEP + ''.join(game[key][0]) + DATA_SEP + game[key][1] + DATA_SEP + numb_players
         msg += MSG_SEP
-        return __RSP_OK + MSG_SEP + msg
+        return __RSP_OK + MSG_SEP + msg,None,None
         # 1:1/1234/5/4:   this kind of string will be returned. header:gameid:sudoku:limit:players
     if message.startswith(__REQ_USER + MSG_SEP):
         msg1 = message[2:]
@@ -184,7 +190,7 @@ def server_process(message, client_socket, server_socket):
         for user_name in user[game_id]:  # will be returned in request_user
             msg += DATA_SEP + user_name + DATA_SEP + str(user[game_id][user_name][0])
         msg += MSG_SEP
-        return __RSP_OK + MSG_SEP + msg
+        return __RSP_OK + MSG_SEP + msg,None,None
         # 1:user4/0:User2/5:user3/8:user1/0:  this kind of string will be returned . header:username/score:username/score:
 
     if message.startswith(__REQ_QUIT + MSG_SEP):  # user wants to quit. So his score will be deleted.
@@ -192,18 +198,19 @@ def server_process(message, client_socket, server_socket):
         split_msg = msg.split(DATA_SEP)
         user_name = split_msg[1]
         game_id = split_msg[0]
-        del user[game_id][user_name]
-
-        # msg =req_notify
-        # thread=(targer='')
-        if len(user[game_id]) == 0:
-            del user[game_id]
-            del game[game_id]
-            del sudoku_answer[game_id]
         if split_msg[2] == 'close':
-            return 'close'
+            return 'close', None, None
+        else:
+            del user[game_id][user_name]
 
-        return __RSP_OK
+            if len(user[game_id]) == 0:
+                del user[game_id]
+                del game[game_id]
+                del sudoku_answer[game_id]
+            else:
+                message = notify(game_id)
+                t = Thread(target=notification_thread, args=(message, game_id))
+                return __RSP_OK,t,None
     if message.startswith(__REQ_MOVE + MSG_SEP):
         msg = message[2:]
         split_msg = msg.split(DATA_SEP)
@@ -212,29 +219,42 @@ def server_process(message, client_socket, server_socket):
         position = split_msg[1]
         number = split_msg[2]
         player = split_msg[3]
-        if sudoku[position] == 0:
-            sudoku[position] = number
-            correct_number = answers[id][0][position]
-            if number == correct_number:
-                x = user[id][player]
+        if sudoku[position] =='-': # if position is free
+
+            correct_number = answers[id][position] #find correct number in the sudoku answers
+
+            if number == correct_number:  #if the number is correct
+                x = user[id][player][0] #find the user's previous score
                 x += 1
                 str(x)
-                user[id][player] = x
+                user[id][player][0] = x # ++1 to that score
                 LOG.debug("correct move")
-                return __RSP_OK
+                sudoku[position] = number #put the new number in the sudoku
+                if answers[id] == game[id][0]: # check if sudoku is full and notify the winner and users
+                    message=winner(id)
+                    t = Thread(target=notification_thread, args=(message, id))
+                    return __RSP_OK,t,None
+                else: # Game not finished
+                    message=notify(id)
+                    t = Thread(target=notification_thread, args=(message, id))
+                    message1=sudoku(id)
+                    t1=Thread(target=notification_thread, args=(message1, id))
+                    return __RSP_OK, t, t1
             else:
                 x = int(user[id][player])
                 x -= 1
                 str(x)
                 user[id][player] = x
                 LOG.debug("wrong move")
-                return __RSP_WRONGMOVE
+                message = notify(id)
+                t = Thread(target=notification_thread, args=(message, id))
+                return __RSP_WRONGMOVE,t,None
         else:
             LOG.debug("late move")
-            return __RSP_LATEMOVE
+            return __RSP_LATEMOVE,None,None
 
 
     else:
         LOG.debug('Unknown control message received: %s ' % message)
-        return __RSP_UNKNCONTROL
+        return __RSP_UNKNCONTROL,None,None
 
