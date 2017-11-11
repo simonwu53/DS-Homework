@@ -2,6 +2,9 @@ import logging
 import time
 import numpy as np
 import sudoku_generator
+import operator
+import json
+
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
@@ -69,6 +72,19 @@ def startgame():
     message = __REQ_STARTGAME + MSG_SEP
     
     return message
+    
+def winner(gameid):
+
+    #find the winner 
+    user_dict   = user[gameid]
+    winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]
+    winner_list = {winner_user: user[winner_user] }
+    
+    #assemble the message
+    winner = json.dumps(winner_list)    #convert dict to string
+    message = __REQ_WINNER + MSG_SEP + winner
+    
+    return message  
     
 def server_process(message,client_socket,server_socket):
     '''Process the client's message,
