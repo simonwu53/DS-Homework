@@ -3,7 +3,6 @@ import time
 import numpy as np
 import sudoku_generator
 import operator
-import json
 
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
@@ -72,7 +71,7 @@ def startgame():
     message = __REQ_STARTGAME + MSG_SEP
     
     return message
-    
+
 def winner(gameid):
 
     #find the winner 
@@ -81,6 +80,32 @@ def winner(gameid):
     
     #assemble the message
     message = __REQ_WINNER + MSG_SEP + winner_user + DATA_SEP + str(user[winner_user][0]) 
+    
+    return message
+    
+    
+def notify(gameid):
+    
+    #get user:score data
+    user_score_dict = user[gameid]
+    user_score_list = user_score_dict.items()
+
+    #assemble the message
+    for i in range(len(user_score_dict)-1):
+        user_score_string = user_score_list[i][0] + DATA_SEP + user_score_list[i][1] + MSG_SEP
+        
+    message = __REQ_NOTIFY + MSG_SEP + user_score_string
+    
+    return message
+    
+    
+def sudoku(gameid):
+    
+    #get sudoku
+    sudoku = game[gameid][0]
+    
+    #assemble the message
+    message = __REQ_SUDOKU + MSG_SEP + sudoku    
     
     return message
     
