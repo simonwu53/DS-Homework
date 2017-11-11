@@ -80,7 +80,7 @@ def winner(gameid):
     winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]
     
     #assemble the message
-    message = __REQ_WINNER + MSG_SEP + winner_user + DATA_SEP + str(user[winner_user][0]) 
+    message = __REQ_WINNER + MSG_SEP + winner_user + DATA_SEP + str(user_dict[winner_user][0]) 
     
     return message
     
