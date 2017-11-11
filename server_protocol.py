@@ -97,67 +97,49 @@ def server_process(message):
             answers[id]=sudoku_answer
             score[name] = 0  # add user 1
             User[id] = score
-            return MSG_SEP.join((__RSP_OK,)+str_id)
-    if message.startswith(__REQ_MOVE + MSG_SEP):
-        msg = message[2:]
-        split_msg = msg.split(',')
-        id = split_msg[0]
-        sudoku = game[id][0]
-        position = split_msg[1]
-        number = split_msg[2]
-        User = split_msg[3]
-        if sudoku[position] == "-":
-            sudoku[position] = number
-            if number == sudoku_answer[position]:
-                x = int(user[id][User])
-                x += 1
-                str(x)
-                user[id][User] = x
-                LOG.debug("correct move")
-                return __RSP_OK
-            else:
-                x = int(user[id][User])
-                x -= 1
-                str(x)
-                user[id][User] = x
-                LOG.debug("wrong move")
-                return __RSP_WRONGMOVE
-        else:
-            LOG.debug("late move")
-            return __RSP_LATEMOVE
+            return MSG_SEP.join((__RSP_OK,)+tuple(str_id))
     if message.startswith(REQ_SUDOKU + MSG_SEP):
         msg = []
         for key in game,user:
             numb_players=str(len(user[key]))
             msg+=msg+MSG_SEP+str(key)+DATA_SEP+list(''.join(game[key][0]))+DATA_SEP+game[key][1]+DATA_SEP+numb_players
 
-        return __RSP_OK+msg
+        return __RSP_OK+ MSG_SEP+msg
 
     if message.startswith(__REQ_USER + MSG_SEP):
-        msg = []
+        msg = ''
         for key in user:
-            for user_name in user[key]:
-                msg+=MSG_SEP+user_name+user[key][user_name]
+            msg += str(key)
+            for user_name in User[key]:  # will be returned in request_user
+                msg += DATA_SEP + user_name + DATA_SEP + str(User[key][user_name])
+        msg += MSG_SEP
+        return __RSP_OK + MSG_SEP + msg
 
-        return __RSP_OK+msg
-
-
-
-
-
-
-    #if message.startswith(__REQ_MOVE + MSG_SEP):
-    #    msg=message[2:]
-
-
-
-
-
-
-
-        LOG.debug('Registering new user ')
-        LOG.info('Published new message, uuid: %d' % m_id)
+    if message.startswith(__REQ_QUIT + MSG_SEP):
+        msg = message[2:]
+        split_msg = msg.split(',')
+        user_name=split_msg[0]
+        game_id=split_msg[1]
+        del user[game_id][user_name]
+        if len(user[game_id]) == 0:
+            del user[game_id]
+            del game[game_id]
+            del sudoku_answer[game_id]
         return __RSP_OK
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     elif message.startswith(__REQ_LAST + __MSG_FIELD_SEP):
         s = message[2:]
         try:
