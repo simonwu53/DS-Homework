@@ -98,6 +98,33 @@ def server_process(message):
             score[name] = 0  # add user 1
             User[id] = score
             return MSG_SEP.join((__RSP_OK,)+str_id)
+    if message.startswith(__REQ_MOVE + MSG_SEP):
+        msg = message[2:]
+        split_msg = msg.split(',')
+        id = split_msg[0]
+        sudoku = game[id][0]
+        position = split_msg[1]
+        number = split_msg[2]
+        User = split_msg[3]
+        if sudoku[position] == "-":
+            sudoku[position] = number
+            if number == sudoku_answer[position]:
+                x = int(user[id][User])
+                x += 1
+                str(x)
+                user[id][User] = x
+                LOG.debug("correct move")
+                return __RSP_OK
+            else:
+                x = int(user[id][User])
+                x -= 1
+                str(x)
+                user[id][User] = x
+                LOG.debug("wrong move")
+                return __RSP_WRONGMOVE
+        else:
+            LOG.debug("late move")
+            return __RSP_LATEMOVE
     if message.startswith(REQ_SUDOKU + MSG_SEP):
         msg = []
         for key in game,user:
