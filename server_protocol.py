@@ -204,7 +204,37 @@ def server_process(message, client_socket, server_socket):
             return 'close'
 
         return __RSP_OK
+    if message.startswith(__REQ_MOVE + MSG_SEP):
+        msg = message[2:]
+        split_msg = msg.split(DATA_SEP)
+        id = split_msg[0]
+        sudoku = game[id][0]
+        position = split_msg[1]
+        number = split_msg[2]
+        player = split_msg[3]
+        if sudoku[position] == 0:
+            sudoku[position] = number
+            correct_number = answers[id][0][position]
+            if number == correct_number:
+                x = user[id][player]
+                x += 1
+                str(x)
+                user[id][player] = x
+                LOG.debug("correct move")
+                return __RSP_OK
+            else:
+                x = int(user[id][player])
+                x -= 1
+                str(x)
+                user[id][player] = x
+                LOG.debug("wrong move")
+                return __RSP_WRONGMOVE
+        else:
+            LOG.debug("late move")
+            return __RSP_LATEMOVE
+
 
     else:
         LOG.debug('Unknown control message received: %s ' % message)
         return __RSP_UNKNCONTROL
+
