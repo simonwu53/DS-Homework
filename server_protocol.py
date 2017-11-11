@@ -20,19 +20,24 @@ id=0 # game id , it will be increased as new games are created one by one
 #sudoku_generator=[]
 sudoku_answer={}
 # Requests --------------------------------------------------------------------
+# Requests --------------------------------------------------------------------
 # client requests
 __REQ_REG = '1'
 __REQ_JOIN = '2'
 __REQ_MOVE = '3'
 __REQ_QUIT = '4'
+__REQ_SUDOKU = '5'
+__REQ_USER = '6'
 # server requests(notify)
-__REQ_STARTGAME = '5'
-__REQ_WINNER = '6'
-__REQ_NOTIFY = '7'
+__REQ_STARTGAME = '7'
+__REQ_WINNER = '8'
+__REQ_NOTIFY = '9'
 __CTR_MSGS = {__REQ_REG: 'Register user name in server', # client recv OK or ___
               __REQ_MOVE: 'Player suggest one attempt', # client recv OK or ___
               __REQ_JOIN: 'Request to join game session', # client recv OK or ___
               __REQ_QUIT: 'Player leave game session', # client recv can be none
+              __REQ_SUDOKU: 'Fetch the sudoku & player limit',
+              __REQ_USER: 'Fetch the user name & scores in sudoku',
               # ---------------------------------------------
               __REQ_STARTGAME: 'Server start the game', # client recv can be none
               __REQ_WINNER: 'Game end claim winner',  # client recv winner name
@@ -46,16 +51,19 @@ __RSP_UNKNCONTROL = '2' # client also use
 __RSP_DUPNAME = '3'
 __RSP_JOINFAIL = '4'
 __RSP_WRONGMOVE = '5'
-__RSP_LATEMOVE = '6'
+__RSP_LATEMOVE = '6',
+__RSP_ERRTRANSM = '7'
 __ERR_MSGS = {__RSP_OK: 'No Error',
               __RSP_BADFORMAT: 'Unknown message',
               __RSP_UNKNCONTROL: 'Unknown header',
               __RSP_DUPNAME: 'Duplicated name',
               __RSP_JOINFAIL: 'Fail to join game session',
               __RSP_WRONGMOVE: 'Player suggest wrong answer, -1 score',
-              __RSP_LATEMOVE: 'Player''s move was late'
+              __RSP_LATEMOVE: 'Player''s move was late',
+              __RSP_ERRTRANSM: 'Socket send&recv error'
               }
-def server_process(message):
+
+def server_process(message,client_socket,server_socket):
     '''Process the client's message,
         @param message: string, protocol data unit received from client
                 @returns string, response to send to client
@@ -74,7 +82,7 @@ def server_process(message):
             return __RSP_OK
     if message.startswith(__REQ_JOIN + MSG_SEP): #here is 2 step a) user wants to join existing game or b)creating new game
         msg=message[2:]
-        split_msg=msg.split(',')
+        split_msg=msg.split(DATA_SEP)
         var=split_msg[0]
         if var.isdigit():
              #if user wants to join existing game
@@ -95,15 +103,15 @@ def server_process(message):
             sudoku.append(limit)
             game[id]=sudoku
             answers[id]=sudoku_answer
-            score[name] = 0  # add user 1
+            score[name] = [0, client_socket]  # add user 1
             User[id] = score
             return MSG_SEP.join((__RSP_OK,)+tuple(str_id))
     if message.startswith(REQ_SUDOKU + MSG_SEP):
-        msg = []
-        for key in game,user:
+        msg = ''
+        for key in game:
             numb_players=str(len(user[key]))
-            msg+=msg+MSG_SEP+str(key)+DATA_SEP+list(''.join(game[key][0]))+DATA_SEP+game[key][1]+DATA_SEP+numb_players
-
+            msg+=str(key)+DATA_SEP+''.join(game[key][0])+DATA_SEP+game[key][1]+DATA_SEP+numb_players
+        msg += MSG_SEP
         return __RSP_OK+ MSG_SEP+msg
 
     if message.startswith(__REQ_USER + MSG_SEP):
@@ -117,14 +125,21 @@ def server_process(message):
 
     if message.startswith(__REQ_QUIT + MSG_SEP):
         msg = message[2:]
-        split_msg = msg.split(',')
-        user_name=split_msg[0]
-        game_id=split_msg[1]
+        split_msg = msg.split(DATA_SEP)
+        user_name=split_msg[1]
+        game_id=split_msg[0]
         del user[game_id][user_name]
+        del user[game_id][user_name][1]
+        # msg =req_notify
+        # thread=(targer='')
         if len(user[game_id]) == 0:
             del user[game_id]
             del game[game_id]
             del sudoku_answer[game_id]
+        if split_msg[2]=='close':
+            return 'close'
+
+
         return __RSP_OK
 
 
