@@ -4,7 +4,8 @@
 
                      Team member: Andro Lominadze, Kadir Aktas, Xatia Kilanava, Shan Wu
 
-                     cites: (finish later)
+             cites: https://github.com/RutledgePaulV/sudoku-generator/blob/master/sudoku_generator.py
+
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
@@ -14,21 +15,9 @@
 Q: How to avoid duplicated names?                                          
 A: Every game login first, then create name. That may cause the same name in the same game. So in this game, 
    we enter server info FIRST to ensure no duplicated names.
-   
-For next meetup:
-Q: fetch sudoku just list or string, notification sudoku, function reuse..
 
 ------------------------------------------------------------------------------------------------------------"""
 
-"""------------------------------------------------------------------------------------------------------------
-                                        Personal note(delete later)
-                                        
-change data type of sudoku, userinfos -> need to change in UI function
-self.users = 'user1/0:user2/5:user3/10'
-line 514: example game data
-line 630: example user data
-line 653: example sudoku data
-------------------------------------------------------------------------------------------------------------"""
 from Tkinter import *
 import tkMessageBox
 import tkFont as tkfont
@@ -287,7 +276,7 @@ def notification_thread(usr, f):
         # reply
         #s.sendall(client_protocol.__RSP_OK + client_protocol.MSG_SEP)
         logging.debug('Game session[sudoku] updated!')
-        pass
+        return 0
 
 
 """------------------------------------------------------------------------------------------------------------
@@ -546,15 +535,20 @@ class Joining(Frame):
 
     def select(self, e=None):
         try:
+            """Start notification thread"""
+            f = self.controller.user.game_frame[0]  # get game session frame
+            start_notification = threading.Thread(target=notification_thread,
+                                                  args=(self.controller.user, f))
+            self.controller.user.notifi_thread.append(start_notification)
+            start_notification.start()  # start thread
+
             item = self.tree.selection()[0]
             itemtup = self.tree.item(item, 'values')
             gameid = int(itemtup[0])
             if joingame(self.controller.user, gameid):
                 logging.debug('User selected game ID: %d.' % gameid)
 
-
                 """fetch sudoku game session, user_data, rendering"""
-                f = self.controller.user.game_frame[0] # get game session frame
                 games = fetch_sudoku(self.controller.user) # get sudoku
                 users = fetch_user(self.controller.user)  # get users
                 splited_game = games.split(client_protocol.MSG_SEP)
@@ -564,12 +558,6 @@ class Joining(Frame):
                         sudoku = list(gameinfo[1])
                         f.update_sudoku(sudoku)
                         f.update_scores(users)
-
-                """Start notification thread"""
-                start_notification = threading.Thread(target=notification_thread,
-                                                      args=(self.controller.user, f))
-                self.controller.user.notifi_thread.append(start_notification)
-                start_notification.start()  # start thread
 
                 self.controller.show_frame("GameSession")
             else:
@@ -653,6 +641,7 @@ class NewSession(Frame):
             if gid == -1:
                 logging.debug('An error occured when creating game!')
                 tkMessageBox.showwarning('GID Value Error', 'Please create game later!')
+                return 0
             else:
                 logging.debug('Game session created! Game id is %d.' % gid)
 
