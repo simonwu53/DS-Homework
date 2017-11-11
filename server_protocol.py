@@ -63,6 +63,13 @@ __ERR_MSGS = {__RSP_OK: 'No Error',
               __RSP_ERRTRANSM: 'Socket send&recv error'
               }
 
+def startgame():
+    
+    #assemble the message
+    message = __REQ_STARTGAME + MSG_SEP
+    
+    return message
+    
 def server_process(message,client_socket,server_socket):
     '''Process the client's message,
         @param message: string, protocol data unit received from client
