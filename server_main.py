@@ -21,7 +21,7 @@ def __info():
 
     # Starting server
 
-def send_receive(__server_socket, __client_socket, threads):
+def send_receive(__server_socket, client_socket, threads):
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -32,7 +32,7 @@ def send_receive(__server_socket, __client_socket, threads):
     except (soc_error) as e:
         # In case we failed in the middle of transfer we should report error
         LOG.error('Interrupted receiving the data from %s:%d, ' \
-                  'error: %s' % (source + (e,)))
+                  'error: %s' % (client_socket + (e,)))
         # ... and close socket
         __disconnect_client(client_socket)
         client_socket = None
@@ -40,10 +40,10 @@ def send_receive(__server_socket, __client_socket, threads):
         #continue
 
     # Now here we assume the message contains
-    LOG.debug('Received message [%d bytes] ' \
-              'from %s:%d' % ((len(m),) + source))
+    LOG.debug('Received message from %s' % (client_socket))
 
-    r, notify = protocol.server_process(m, client_socket, server_socket)
+#call the server process function from server protocol
+    r, notify = protocol.server_process(m, client_socket)
     # Try to send the response (r) to client
     if r == 'close':
         client_socket.sendall(server_protocol.__RSP_OK)
@@ -52,22 +52,22 @@ def send_receive(__server_socket, __client_socket, threads):
     else:
         try:
             LOG.debug('Processed request for client %s:%d, ' \
-                      'sending response' % source)
+                      'sending response' % client_socket)
             # Send all data of the response (r)
             client_socket.sendall(r)
         except soc_error as e:
-            # In case we failed in the middle of transfer we should report error
+            # In case we failed in the middle of transfer
             LOG.error('Interrupted sending the data to %s:%d, ' \
-                      'error: %s' % (source + (e,)))
-            # ... and close socket
+                      'error: %s' % (client_socket + (e,)))
+            # close socket
             __disconnect_client(client_socket)
-            client_socket = None
-    if notify:
-        nitify.start()
 
-    client_socket = None
-        # ... and we should proceed to the others
-        #continue
+    if notify:
+        notify.start()
+
+
+        # proceed to the others
+
 threads=[]
 # Declaring TCP socket
 parser = ArgumentParser(description=__info(),
