@@ -92,7 +92,7 @@ def notify(gameid):
 
     #assemble the message
     for i in range(len(user_score_dict)-1):
-        user_score_string = user_score_list[i][0] + DATA_SEP + user_score_list[i][1] + MSG_SEP
+        user_score_string = user_score_list[i][0] + DATA_SEP + str(user_score_list[i][1]) + MSG_SEP
         
     message = __REQ_NOTIFY + MSG_SEP + user_score_string
     
@@ -105,7 +105,7 @@ def sudoku(gameid):
     sudoku = game[gameid][0]
     
     #assemble the message
-    message = __REQ_SUDOKU + MSG_SEP + sudoku    
+    message = __REQ_SUDOKU + MSG_SEP + ''.join(sudoku)    
     
     return message
     
