@@ -150,7 +150,7 @@ def create_game(usr, diffi, limit):
 
 
 def attempt(usr, place, number):
-    check = True
+    check = False
 
     message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + usr.gameid + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + str(
         place) + client_protocol.DATA_SEP + str(number)
@@ -158,8 +158,8 @@ def attempt(usr, place, number):
 
     if rsp_hdr == client_protocol.__RSP_OK:
         check = True
-    else:
-        check = False
+    elif rsp_hdr == client_protocol.__RSP_WRONGMOVE:
+        check = -1
 
     return check
 
@@ -319,6 +319,7 @@ class Client(Tk):
 
         self.show_frame("ConnectServer")
         self.user.game_frame.append(self.frames[GameSession.__name__])
+        self.user.game_frame.append(self.frames[Joining.__name__])
 
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
@@ -461,6 +462,10 @@ class Login(Frame):
                     logging.debug('Name ok!')
                     tkMessageBox.showinfo('Welcome', 'Welcome to Sudoku game! %s' % self.name)
                     self.controller.user.setname(self.name)  # store user info
+                    # start fetching game session
+                    f = self.controller.user.game_frame[1]
+                    f.loadgames()
+                    
                     self.controller.show_frame("Joining")
                 else:
                     logging.debug('Name Error: Duplicated username on server!')
@@ -521,7 +526,7 @@ class Joining(Frame):
         self.tree.column('b', width=50, anchor='center')
         self.tree.heading('a', text='Game ID')
         self.tree.heading('b', text='Players')
-        self.loadgames()
+        #self.loadgames()
         self.tree.grid(row=1, column=0, columnspan=3, sticky=NSEW)
         self.tree.bind('<Return>', self.select)
         logging.debug('Loading *Joining* Page success!')
@@ -822,10 +827,13 @@ class GameSession(Frame):
         entries = self.modified_entries.keys()
         position = self.entries[entries[0]]
         inputvalue = self.modified_entries[entries[0]]
-        if attempt(self.user, position, inputvalue):
+        decision = attempt(self.user, position, inputvalue)
+        if decision == True:
             print 'you inputed %s, postion: %d' % (inputvalue, position)
             # fetch game status
 
+        elif decision == -1:
+            print 'wrong move'
         return 1
 
 
