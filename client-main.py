@@ -38,6 +38,7 @@ import logging
 import threading
 import client_protocol
 from socket import AF_INET, SOCK_STREAM, socket, timeout
+import json
 import sudoku_generator  # for test
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s', )
@@ -178,7 +179,7 @@ def quit_game(usr):
     check = True
 
     message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(
-        usr.gameid) + client_protocol.DATA_SEP + usr.currentname
+        usr.gameid) + client_protocol.DATA_SEP + usr.currentname +  client_protocol.DATA_SEP + '123' # dump msg 123
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
@@ -194,11 +195,11 @@ def fetch_sudoku(usr):
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
-        check = True
+        logging.debug('Got sudoku!')
     else:
-        check = False
+        logging.debug('Fetch sudoku failed!')
 
-    return check, rsp_msg
+    return rsp_msg
 
 
 def fetch_user(usr):
@@ -206,19 +207,25 @@ def fetch_user(usr):
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     if rsp_hdr == client_protocol.__RSP_OK:
-        check = True
-        user = rsp_msg[0]
-        scores = rsp_msg[2:]
+        logging.debug('Got users!')
     else:
-        check = False
-        user = ""
-        scores = ""
+        logging.debug('Fetch users failed!')
 
-    return check, user, scores
+    return rsp_msg
 
 
 def cut_down(usr):  # finish later (close connection)
-    return True
+    check = False
+    message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(
+        usr.gameid) + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + 'close'
+    rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    if rsp_hdr == client_protocol.__RSP_OK:
+        check = True
+    else:
+        check = False
+
+    return check
 
 
 """------------------------------------------------------------------------------------------------------------
@@ -248,7 +255,7 @@ def notification_thread(usr, f):
     # Header 1: start the game
     if data.startswith(client_protocol.__REQ_STARTGAME + client_protocol.MSG_SEP):
         # reply
-        s.sendall(client_protocol.__RSP_OK+client_protocol.MSG_SEP)
+        #s.sendall(client_protocol.__RSP_OK+client_protocol.MSG_SEP)
         logging.debug('Game session has started')
         # change game UI
         f.submit_button.configure(state='normal')
@@ -256,14 +263,30 @@ def notification_thread(usr, f):
 
     # Header 2: end the game
     elif data.startswith(client_protocol.__REQ_WINNER + client_protocol.MSG_SEP):
-        pass
+        msg = data[2:]
+        f.game_end(msg)
+        # reply
+        #s.sendall(client_protocol.__RSP_OK + client_protocol.MSG_SEP)
+        logging.debug('Game session has ended!')
+        return 0
 
     # Header 3: Change player info
     elif data.startswith(client_protocol.__REQ_NOTIFY + client_protocol.MSG_SEP):
-        pass
+        msg = data[2:]
+        f.update_scores(msg)
+        # reply
+        #s.sendall(client_protocol.__RSP_OK + client_protocol.MSG_SEP)
+        logging.debug('Game session[userinfo] updated!')
+        return 0
 
     # Header 4: Update sudoku
     elif data.startswith(client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP):
+        msg = data[2:]
+        sudoku = list(msg)
+        f.update_sudoku(sudoku)
+        # reply
+        #s.sendall(client_protocol.__RSP_OK + client_protocol.MSG_SEP)
+        logging.debug('Game session[sudoku] updated!')
         pass
 
 
@@ -480,13 +503,9 @@ class Login(Frame):
     def quit_conection(self):
         if tkMessageBox.askyesno('Quit?', 'Are you sure to quit?'):
             name = self.controller.user.getname()
-            if name == '':
+            if cut_down(self.controller.user):
                 logging.debug('Bye:)')
                 self.quit()
-            else:
-                if cut_down(self.controller.user):
-                    logging.debug('Bye:)')
-                    self.quit()
 
 
 # **Joining**----------------------------------------------------------------------------------------------------------
@@ -533,13 +552,24 @@ class Joining(Frame):
             if joingame(self.controller.user, gameid):
                 logging.debug('User selected game ID: %d.' % gameid)
 
-                """Start notification thread"""
-                game_frame = self.controller.user.game_frame[0]
-                start_notification = threading.Thread(target=notification_thread,
-                                                      args=(self.controller.user, game_frame))
-                self.controller.user.notifi_thread.append(start_notification)
 
                 """fetch sudoku game session, user_data, rendering"""
+                f = self.controller.user.game_frame[0] # get game session frame
+                games = fetch_sudoku(self.controller.user) # get sudoku
+                users = fetch_user(self.controller.user)  # get users
+                splited_game = games.split(client_protocol.MSG_SEP)
+                for eachgame in splited_game:  # get specific sudoku
+                    if eachgame.startwith(str(gameid)):
+                        gameinfo = eachgame.split(client_protocol.DATA_SEP) # '1/[0,0,0]/3/2'
+                        sudoku = list(gameinfo[1])
+                        f.update_sudoku(sudoku)
+                        f.update_scores(users)
+
+                """Start notification thread"""
+                start_notification = threading.Thread(target=notification_thread,
+                                                      args=(self.controller.user, f))
+                self.controller.user.notifi_thread.append(start_notification)
+                start_notification.start()  # start thread
 
                 self.controller.show_frame("GameSession")
             else:
@@ -558,8 +588,9 @@ class Joining(Frame):
         # delete old items
         for _ in map(self.tree.delete, self.tree.get_children('''''')):
             pass
-        # fetch new
-        self.games = '1/[0,0,0,0]/3/2:2/[1,0,1,0]/5/1:3/[0,2,2,0]/2/2'  # just example
+        """fetch sudoku game session"""
+        #self.games = '1/[0,0,0,0]/3/2:2/[1,0,1,0]/5/1:3/[0,2,2,0]/2/2'  # just example
+        self.games = fetch_sudoku(self.controller.user)
         # append to tree
         splited_game = self.games.split(client_protocol.MSG_SEP)
         for eachgame in splited_game:
@@ -625,14 +656,23 @@ class NewSession(Frame):
             else:
                 logging.debug('Game session created! Game id is %d.' % gid)
 
-                """fetch sudoku game, user_data, rendering"""
-
+                """fetch sudoku game session, user_data, rendering"""
+                f = self.controller.user.game_frame[0]  # get game session frame
+                games = fetch_sudoku(self.controller.user)  # get sudoku
+                users = fetch_user(self.controller.user)  # get users
+                splited_game = games.split(client_protocol.MSG_SEP)
+                for eachgame in splited_game:  # get specific sudoku
+                    if eachgame.startwith(str(gid)):
+                        gameinfo = eachgame.split(client_protocol.DATA_SEP)  # '1/[0,0,0]/3/2'
+                        sudoku = list(gameinfo[1])
+                        f.update_sudoku(sudoku)
+                        f.update_scores(users)
 
                 """Start notification thread"""
-                game_frame =  self.controller.user.game_frame[0]
                 start_notification = threading.Thread(target=notification_thread,
-                args=(self.controller.user, game_frame))
+                args=(self.controller.user, f))
                 self.controller.user.notifi_thread.append(start_notification)
+                start_notification.start()  # start thread
 
                 self.controller.show_frame("GameSession")
         except ValueError:
@@ -727,7 +767,7 @@ class GameSession(Frame):
 
         logging.debug('Loading *GameSession* Page success!')
 
-    def update_scores(self, users):  # user string (or list)
+    def update_scores(self, users):  # user string
         # delete old widgets
         for eachlabel in self.score_labels:
             eachlabel.destory()
@@ -795,6 +835,8 @@ class GameSession(Frame):
         inputvalue = self.modified_entries[entries[0]]
         if attempt(self.user, position, inputvalue):
             print 'you inputed %s, postion: %d' % (inputvalue, position)
+            # fetch game status
+
         return 1
 
 
@@ -803,6 +845,12 @@ class GameSession(Frame):
             logging.debug('Player has quit the game session!')
             if quit_game(self.controller.user):
                 self.controller.show_frame("Login")
+
+    def game_end(self, winner):
+        name, score = winner.split(client_protocol.DATA_SEP)
+        #winner_score = winner[0]
+        tkMessageBox.showinfo('Game End!', 'The winnder is %s!' % name)
+        self.controller.show_frame("Login")
 
     def generate_example(self):
         # example sudoku
