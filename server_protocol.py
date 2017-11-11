@@ -109,7 +109,18 @@ def sudoku(gameid):
     message = __REQ_SUDOKU + MSG_SEP + ''.join(sudoku)    
     
     return message
+    
+def notification_thread(message,gameid)
 
+    #find client sockets by id: in user dict
+    user_dict =  user[gameid]
+    user_list = user_dict.items()
+    for i in range (len(user_list)):
+        client_socket = user_list[i][1][1]
+        client_socket.sendall(message)
+    
+    return
+    
 def server_process(message, client_socket, server_socket):
     '''Process the client's message,
         @param message: string, protocol data unit received from client
