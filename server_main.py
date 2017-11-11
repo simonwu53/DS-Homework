@@ -43,7 +43,7 @@ def send_receive(__server_socket, client_socket, threads):
     LOG.debug('Received message from %s' % (client_socket))
 
 #call the server process function from server protocol
-    r, notify = protocol.server_process(m, client_socket)
+    r, notify, sudoku = protocol.server_process(m, client_socket)
     # Try to send the response (r) to client
     if r == 'close':
         client_socket.sendall(server_protocol.__RSP_OK)
@@ -64,6 +64,8 @@ def send_receive(__server_socket, client_socket, threads):
 
     if notify:
         notify.start()
+    if sudoku:
+        sudoku.start()
 
 
         # proceed to the others
