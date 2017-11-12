@@ -782,19 +782,22 @@ class GameSession(Frame):
             score_board = [self.user_data]
         row, column = 1, 0
         for each_user in score_board:
-            print each_user
-            name, score = each_user.split(client_protocol.DATA_SEP)
+            if each_user == '':
+                pass
+            else:
+                print each_user
+                namelist = each_user.split(client_protocol.DATA_SEP)
+                print namelist
 
-            name_label = Label(self.game_header_frame, text=name + ':')
-            score_label = Label(self.game_header_frame, text=score)
-            name_label.grid(row=row, column=column % 2, sticky=E)
-            column += 1
-            score_label.grid(row=row, column=column % 2, sticky=W)
-            row += 1
-            column += 1
-            self.score_labels.append(name_label)
-            self.score_labels.append(score_label)
-        pass
+                name_label = Label(self.game_header_frame, text=namelist[0] + ':')
+                score_label = Label(self.game_header_frame, text=namelist[1])
+                name_label.grid(row=row, column=column % 2, sticky=E)
+                column += 1
+                score_label.grid(row=row, column=column % 2, sticky=W)
+                row += 1
+                column += 1
+                self.score_labels.append(name_label)
+                self.score_labels.append(score_label)
 
     def update_sudoku(self, puzzle):  # puzzle list
         # delete old widgets

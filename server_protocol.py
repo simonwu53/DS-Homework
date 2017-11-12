@@ -90,13 +90,14 @@ def notify(gameid):
     #get user:score data
     user_score_dict = user[gameid]
     user_score_list = user_score_dict.items()
-
+    print user_score_list
     #assemble the message
-    for i in range(len(user_score_dict)-1):
-        user_score_string = user_score_list[i][0] + DATA_SEP + str(user_score_list[i][1]) + MSG_SEP
+    for i in range(len(user_score_dict)):
+
+        user_score_string = user_score_list[i][0] + DATA_SEP + str(user_score_list[i][1][0]) + MSG_SEP
         
     message = __REQ_NOTIFY + MSG_SEP + user_score_string
-    
+    print message
     return message
     
     
@@ -170,7 +171,7 @@ def server_process(message, client_socket):
             id += 1  # game ids will start from 1
             str_id = str(id)
             sudoku_answer, generated_sudoku = sudoku_generator.setup_sudoku(difficulty)
-
+            print sudoku_answer
             sudoku.append(generated_sudoku)
             sudoku.append(limit)
             game[id] = sudoku
