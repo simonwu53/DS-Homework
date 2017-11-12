@@ -103,7 +103,12 @@ def publish(socket, message):
     
     # Check response
     r_data = rsp.split(MSG_SEP)
-    rsp_type,rsp_args = r_data[0],r_data[1] #if len(r_data) > 1 else []
-            
+    rsp_type = r_data[0]
+    try:
+        rsp_args = r_data[1] #if len(r_data) > 1 else []
+    except IndexError:
+        print 'No additional data'
+        rsp_args = ''
+
     return rsp_type,rsp_args
 
