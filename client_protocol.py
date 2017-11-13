@@ -91,7 +91,7 @@ def publish(socket, message):
     # we may start receiving
     rsp = None
     try:
-        rsp = socket.recv(1024)
+        rsp = socket.recv(MAX_RECV_SIZE)
     except:
         # In case we failed in the middle of transfer we should report error
         #LOG.error('Interrupted receiving the data from %s:%d, '\

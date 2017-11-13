@@ -166,7 +166,7 @@ def server_process(message, client_socket):
         else:  # else user wants to create new session
             sudoku = []
             name = split_msg[0]
-            limit = split_msg[1]
+            limit = split_msg[1]  # error1
             difficulty = split_msg[2]
             id += 1  # game ids will start from 1
             str_id = str(id)
