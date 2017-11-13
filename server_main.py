@@ -19,7 +19,7 @@ TCP_RECEIVE_BUFFER_SIZE=1024*1024
 def __info():
     return '%s version %s (%s) %s' % (___NAME, ___VER, ___BUILT, ___VENDOR)
 
-    # Starting server
+# define function for disconnecting client... takes client_socket as an argument
 def __disconnect_client(s):
     try:
         s.fileno()
@@ -30,32 +30,33 @@ def __disconnect_client(s):
     s.close()
     logging.debug('disconnected client.')
 
-
-def send_receive(__server_socket, client_socket, threads):
+# for each client thread function sends adn receives messages from the client
+#function send_receive takes server's socket and client's socket as arguments
+def send_receive(__server_socket, client_socket):
     while True:
         m = ''  # Here we collect the received message
         try:
-            m = client_socket.recv(TCP_RECEIVE_BUFFER_SIZE)
+            m = client_socket.recv(TCP_RECEIVE_BUFFER_SIZE)# Here we take message from client
         except (soc_error) as e:
             # In case we failed in the middle of transfer we should report error
             logging.error('Interrupted receiving the data from %s:%d, ' \
                       'error: %s' % (client_socket + (e,)))
-            # ... and close socket
+            # close socket
             __disconnect_client(client_socket)
             client_socket = None
-            # ... and proceed to next client waiting in to accept
-            #continue
+            #proceed to next client waiting in to accept
 
         # Now here we assume the message contains
         logging.debug('Received message from %s' % (client_socket))
 
-    #call the server process function from server protocol
+    #call the server process function from server protocol send message and client_Socket
+    #as arguments get three values, one response and two notification threads
         r, notify, sudoku = server_protocol.server_process(m, client_socket)
-        # Try to send the response (r) to client
+        # if response contains word "close" it means client wants to quit...
+        # send OK and close socket
         if r == 'close':
             client_socket.sendall(server_protocol.__RSP_OK)
             __disconnect_client(client_socket)
-            client_socket = None
             break
         else:
             try:
@@ -69,7 +70,7 @@ def send_receive(__server_socket, client_socket, threads):
                           'error: %s' % (client_socket + (e,)))
                 # close socket
                 __disconnect_client(client_socket)
-
+        # start notification threads if there is any content
         if notify:
             notify.start()
             logging.debug('notification1 create')
@@ -81,7 +82,7 @@ def send_receive(__server_socket, client_socket, threads):
 
 """main function"""
 if __name__ == '__main__':
-    threads=[]
+    threads=[] # collecting the threads for each client in a list
     # Declaring TCP socket
     parser = ArgumentParser(description=__info(),
                                 version = ___VER)
@@ -120,7 +121,7 @@ if __name__ == '__main__':
             logging.debug('connected %s' %(client_socket))
 
             #make thread , pass the function and arguments client sock and server sock
-            t=Thread(target=send_receive,args=(__server_socket, client_socket,threads))
+            t=Thread(target=send_receive,args=(__server_socket, client_socket))
             threads.append(t)
             t.start()
 
