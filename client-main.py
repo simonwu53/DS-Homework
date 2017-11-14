@@ -5,7 +5,7 @@
                      Team member: Andro Lominadze, Kadir Aktas, Xatia Kilanava, Shan Wu
 
              cites: https://github.com/RutledgePaulV/sudoku-generator/blob/master/sudoku_generator.py
-
+                    https://stackoverflow.com/questions/7546050/switch-between-two-frames-in-tkinter
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
@@ -27,8 +27,7 @@ import logging
 import threading
 import client_protocol
 from socket import AF_INET, SOCK_STREAM, socket, timeout
-import json
-import sudoku_generator  # for test
+import sudoku_generator
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s', )
 
