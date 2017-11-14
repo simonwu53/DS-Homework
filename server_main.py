@@ -40,7 +40,7 @@ def send_receive(__server_socket, client_socket):
         except (soc_error) as e:
             # In case we failed in the middle of transfer we should report error
             logging.error('Interrupted receiving the data from %s:%d, ' \
-                      'error: %s' % (client_socket + (e,)))
+                      'error: %s' % (client_socket, e))
             # close socket
             __disconnect_client(client_socket)
             client_socket = None
@@ -66,8 +66,8 @@ def send_receive(__server_socket, client_socket):
                 client_socket.sendall(r)
             except soc_error as e:
                 # In case we failed in the middle of transfer
-                logging.error('Interrupted sending the data to %s, ' \
-                          'error: %s' % (client_socket + (e,)))
+                logging.error('Interrupted sending the data, ' \
+                          'error: %s' %  (e,))
                 # close socket
                 __disconnect_client(client_socket)
         # start notification threads if there is any content
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         exit(1)
 
     # Put TCP socket into listening state
-    __server_socket.listen(3)
+    __server_socket.listen(5)
     logging.info('Accepting requests on TCP %s:%d' % __server_socket.getsockname())
 
     while 1:

@@ -45,8 +45,8 @@ class Userinfo():
         self.score = 0
         self.gameid = 0
         self.socket = socket(AF_INET, SOCK_STREAM)
-        self.notifi_thread = []
         self.game_frame = []
+        self.noti_thread = []
 
     """set methods"""
 
@@ -88,8 +88,13 @@ Other func: cut_down
 def checkname(usr, n):
     rsp_hdr = ''
     check = True
+    # pause notification thread
+    #usr.noti_thread[0].pause()
     msg = client_protocol.__REQ_REG + client_protocol.MSG_SEP + n
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, msg)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         # already set current name in UI..
@@ -120,9 +125,14 @@ def makeconnection(usr, addr, port):
 
 def joingame(usr, gid):
     check = True
+    # pause notification thread
+    #usr.noti_thread[0].pause()
 
     message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + str(gid) + usr.currentname
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         check = True
@@ -135,9 +145,14 @@ def joingame(usr, gid):
 
 def create_game(usr, diffi, limit):
     check = True
+    # pause notification thread
+    #usr.noti_thread[0].pause()
 
     message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + usr.currentname + client_protocol.DATA_SEP + limit + client_protocol.DATA_SEP + diffi
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         gid = int(rsp_msg)
@@ -151,9 +166,16 @@ def create_game(usr, diffi, limit):
 def attempt(usr, place, number):
     check = False
 
-    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + str(usr.gameid) + client_protocol.DATA_SEP + usr.currentname + \
+    # pause notification thread
+    #usr.noti_thread[0].pause()
+
+    message = client_protocol.__REQ_MOVE + client_protocol.MSG_SEP + str(
+        usr.gameid) + client_protocol.DATA_SEP + usr.currentname + \
               client_protocol.DATA_SEP + str(place) + client_protocol.DATA_SEP + str(number)
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         check = True
@@ -166,9 +188,15 @@ def attempt(usr, place, number):
 def quit_game(usr):
     check = True
 
+    # pause notification thread
+    #usr.noti_thread[0].pause()
+
     message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(
         usr.gameid) + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + '123'  # dump msg 123
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         check = True
@@ -179,8 +207,14 @@ def quit_game(usr):
 
 
 def fetch_sudoku(usr):
+    # pause notification thread
+    #usr.noti_thread[0].pause()
+
     message = client_protocol.__REQ_SUDOKU + client_protocol.MSG_SEP
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         logging.debug('Got sudoku!')
@@ -191,8 +225,14 @@ def fetch_sudoku(usr):
 
 
 def fetch_user(usr):
+    # pause notification thread
+    #usr.noti_thread[0].pause()
+
     message = client_protocol.__REQ_USER + client_protocol.MSG_SEP + str(usr.gameid)
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         logging.debug('Got users!')
@@ -203,10 +243,15 @@ def fetch_user(usr):
 
 
 def cut_down(usr):  # finish later (close connection)
+    # pause notification thread
+    #usr.noti_thread[0].pause()
     check = False
     message = client_protocol.__REQ_QUIT + client_protocol.MSG_SEP + str(
         usr.gameid) + client_protocol.DATA_SEP + usr.currentname + client_protocol.DATA_SEP + 'close'
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
+
+    # resume notification thread
+    #usr.noti_thread[0].resume()
 
     if rsp_hdr == client_protocol.__RSP_OK:
         check = True
@@ -225,20 +270,64 @@ def cut_down(usr):  # finish later (close connection)
 ------------------------------------------------------------------------------------------------------------"""
 
 
-def notification_thread(usr, f):
-    # waiting to receive msg
-    logging.debug('Notification Thread started')
-    s = usr.socket
-    logging.debug('Waiting for notifications!')
-    data = s.recv(client_protocol.MAX_RECV_SIZE)
+class Notification_thread(threading.Thread):
+    def __init__(self, user):
+        threading.Thread.__init__(self)
+        # flag to pause thread
+        self.paused = False
+        # Explicitly using Lock over RLock since the use of self.paused
+        # break reentrancy anyway, and I believe using Lock could allow
+        # one thread to pause the worker, while another resumes; haven't
+        # checked if Condition imposes additional limitations that would
+        # prevent that. In Python 2, use of Lock instead of RLock also
+        # boosts performance.
+        self.pause_cond = threading.Condition(threading.Lock())
+        self.user = user
+        self.s = self.user.socket
+        self.f = self.user.game_frame[0]
 
-    # check received msg
-    logging.debug('Received request [%d bytes] in total' % len(data))
-    if len(data) < 2:
-        logging.debug('Not enough data received from %s ' % data)
-        return client_protocol.__RSP_BADFORMAT
-    logging.debug('Request control code (%s)' % data[0])
+    def run(self):
+        while True:
+            with self.pause_cond:
+                while self.paused:
+                    self.pause_cond.wait()
 
+                # thread should do the thing if
+                # not paused
+                # waiting to receive msg
+                logging.debug('Notification Thread started')
+
+                logging.debug('Waiting for notifications!')
+                data = self.s.recv(client_protocol.MAX_RECV_SIZE)
+
+                # check received msg
+                logging.debug('Received request [%d bytes] in total' % len(data))
+                if len(data) < 2:
+                    logging.debug('Not enough data received from %s ' % data)
+                    #return client_protocol.__RSP_BADFORMAT
+                logging.debug('Request control code (%s)' % data[0])
+                noti_process(self.user, self.f, data)
+
+    def pause(self):
+        self.paused = True
+        logging.debug('Notification thread has been paused')
+        # If in sleep, we acquire immediately, otherwise we wait for thread
+        # to release condition. In race, worker will still see self.paused
+        # and begin waiting until it's set back to False
+        self.pause_cond.acquire()
+
+        # should just resume the thread
+
+    def resume(self):
+        self.paused = False
+        logging.debug('Notification thread has been resumed')
+        # Notify so thread will wake after lock released
+        self.pause_cond.notify()
+        # Now release the lock
+        self.pause_cond.release()
+
+
+def noti_process(user, f, data):
     """process server request and reply"""
     # Header 1: start the game
     if data.startswith(client_protocol.__REQ_STARTGAME + client_protocol.MSG_SEP):
@@ -276,7 +365,6 @@ def notification_thread(usr, f):
         # s.sendall(client_protocol.__RSP_OK + client_protocol.MSG_SEP)
         logging.debug('Game session[sudoku] updated!')
         return 0
-
 
 """------------------------------------------------------------------------------------------------------------
                                      The end of Notification Thread
@@ -319,7 +407,9 @@ class Client(Tk):
         self.show_frame("ConnectServer")
         self.user.game_frame.append(self.frames[GameSession.__name__])
         self.user.game_frame.append(self.frames[Joining.__name__])
-
+        # notification instance
+        self.notify = Notification_thread(self.user)
+        self.user.noti_thread.append(self.notify)
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
         frame = self.frames[page_name]
@@ -391,6 +481,7 @@ class ConnectServer(Frame):
         # connect to server
         if makeconnection(self.controller.user, serveraddr_match.group(), serverport):
             logging.debug('Connected to server!')
+            self.controller.notify.start()
             self.controller.show_frame("Login")
         else:
             logging.debug('Connecting timeout! Please check your input!')
@@ -539,12 +630,8 @@ class Joining(Frame):
 
     def select(self, e=None):
         try:
-            """Start notification thread"""
-            f = self.controller.user.game_frame[0]  # get game session frame
-            start_notification = threading.Thread(target=notification_thread,
-                                                  args=(self.controller.user, f))
-            self.controller.user.notifi_thread.append(start_notification)
-            start_notification.start()  # start thread
+            """Get the frame want to update"""
+            f = self.controller.user.game_frame[0]
 
             item = self.tree.selection()[0]
             itemtup = self.tree.item(item, 'values')
@@ -668,12 +755,6 @@ class NewSession(Frame):
                         sudoku = list(gameinfo[1])
                         f.update_sudoku(sudoku)
                         f.update_scores(users)
-
-                """Start notification thread"""
-                start_notification = threading.Thread(target=notification_thread,
-                                                      args=(self.controller.user, f))
-                self.controller.user.notifi_thread.append(start_notification)
-                start_notification.start()  # start thread
 
                 self.controller.show_frame("GameSession")
         except ValueError:
