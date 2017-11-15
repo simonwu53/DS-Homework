@@ -128,7 +128,7 @@ def joingame(usr, gid):
     # pause notification thread
     #usr.noti_thread[0].pause()
 
-    message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + str(gid) + usr.currentname
+    message = client_protocol.__REQ_JOIN + client_protocol.MSG_SEP + str(gid) + client_protocol.DATA_SEP + usr.currentname
     rsp_hdr, rsp_msg = client_protocol.publish(usr.socket, message)
 
     # resume notification thread
@@ -287,6 +287,7 @@ class Notification_thread(threading.Thread):
         self.f = self.user.game_frame[0]
 
     def run(self):
+        logging.debug('Notification Thread started')
         while True:
             with self.pause_cond:
                 while self.paused:
@@ -295,8 +296,6 @@ class Notification_thread(threading.Thread):
                 # thread should do the thing if
                 # not paused
                 # waiting to receive msg
-                logging.debug('Notification Thread started')
-
                 logging.debug('Waiting for notifications!')
                 data = self.s.recv(client_protocol.MAX_RECV_SIZE)
 
@@ -644,7 +643,7 @@ class Joining(Frame):
                 users = fetch_user(self.controller.user)  # get users
                 splited_game = games.split(client_protocol.MSG_SEP)
                 for eachgame in splited_game:  # get specific sudoku
-                    if eachgame.startwith(str(gameid)):
+                    if eachgame.startswith(str(gameid)):
                         gameinfo = eachgame.split(client_protocol.DATA_SEP)  # '1/[0,0,0]/3/2'
                         sudoku = list(gameinfo[1])
                         f.update_sudoku(sudoku)
@@ -679,7 +678,7 @@ class Joining(Frame):
             for eachgame in splited_game:
                 gameinfo = eachgame.split(client_protocol.DATA_SEP)
                 self.tree.insert('', 'end', values=(gameinfo[0], gameinfo[3] + '/' + gameinfo[2]))
-        self.tree.after(30000, self.loadgames)  # refresh every 30s
+        self.tree.after(50000, self.loadgames)  # refresh every 50s
         logging.debug('Refreshing game sessions every 30s.')
 
 
@@ -785,7 +784,7 @@ class GameSession(Frame):
         self.puzzle = []
         # welcome string
         self.welcome = StringVar()
-        self.welcome.set('Waiting other players!')
+        self.welcome.set('Try to solve this Sudoku!')
 
         """Joing frame, header, content, footer frames"""
         self.game_frame = Frame(self)

@@ -86,12 +86,10 @@ def notify(gameid):
     user_score_string = ''
     #get user:score data
     user_score_dict = user[gameid]
-    user_score_list = user_score_dict.items()
-    print user_score_list
+    print user_score_dict
     #assemble the message
-    for i in range(len(user_score_dict)):
-
-        user_score_string = user_score_list[i][0] + DATA_SEP + str(user_score_list[i][1][0]) + MSG_SEP
+    for i in user_score_dict.items():
+        user_score_string += i[0] + DATA_SEP + str(i[1][0]) + MSG_SEP
         
     message = __REQ_NOTIFY + MSG_SEP + user_score_string
     print message
@@ -146,24 +144,29 @@ def server_process(message, client_socket):
     if message.startswith(
                     __REQ_JOIN + MSG_SEP):  # here is 2 step a) user wants to join existing game or b)creating new game
         msg = message[2:]
+
         split_msg = msg.split(DATA_SEP)
         var = split_msg[0]
-        if var.isdigit():
+
+        try:
+            game_id = int(var)
             # if user wants to join existing game
             name = split_msg[1]
             game_id = int(var)
             if (len(user[game_id]) > game[game_id][1]):
-                return __RSP_JOINFAIL ,None,None # limit is already reached at this game session
-            user[game_id][name] = [0,client_socket]  # otherwise user is registered to the wanted game session and started from the score 0.
-            if (len(user[game_id]) == game[game_id][1]): #if limit is full
-                message=startgame()
-                t=Thread(target=notification_thread, args=(message, game_id))
-                return __RSP_OK,t,None
-            else:# notify player joined
+                return __RSP_JOINFAIL, None, None  # limit is already reached at this game session
+            user[game_id][name] = [0,
+                                   client_socket]  # otherwise user is registered to the wanted game session and started from the score 0.
+            print user[game_id]
+            if (len(user[game_id]) == game[game_id][1]):  # if limit is full
+                message = startgame()
+                t = Thread(target=notification_thread, args=(message, game_id))
+                return __RSP_OK, t, None
+            else:  # notify player joined
                 message = notify(game_id)
                 t = Thread(target=notification_thread, args=(message, game_id))
-                return __RSP_OK,t,None
-        else:  # else user wants to create new session
+                return __RSP_OK, t, None
+        except ValueError:
             sudoku = []
             name = split_msg[0]
             limit = split_msg[1]  # error1
@@ -178,7 +181,11 @@ def server_process(message, client_socket):
             answers[id] = sudoku_answer
             score[name] = [0, client_socket]  # saving score and client socket
             user[id] = score
-            return __RSP_OK+MSG_SEP+str_id,None,None
+            return __RSP_OK + MSG_SEP + str_id, None, None
+        #if var.isdigit():
+
+        #else:  # else user wants to create new session
+
 
     if message.startswith(__REQ_SUDOKU + MSG_SEP):
         #fetching all the sudokus and game ids

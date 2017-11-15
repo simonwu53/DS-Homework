@@ -20,4 +20,11 @@
     - `server_main.py [-h] [-v] [-a ADDRESS] [-p PORT]`.
 * **Client**: Before run it, make sure you have installed python package `Tkinter`. Then you can simply run it. All the instructions is on the UI interface, it's easy to understand what is going on on client. For more detail information about User Interface please check the document `Implementation of Sudoku Application.docx`, in `client` part.
 
+* **What works**: 
+    - all basic funtion works
+* **What problem**:
+    - our server address and port need to write correctly at once, if you type wrong, you may need to reopen the client
+    - it happened many times when you are doing right, just normal operation will cause the UI freezed, you can only restart client.
+    - when other player joins the existing game, maybe his Sudoku and score board is not real data, after other user input a right number, it will be updated automatically.
+    
 
