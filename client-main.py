@@ -420,7 +420,7 @@ class ConnectServer(Frame):
     def __init__(self, master, controller):
         # init Frame
         Frame.__init__(self, master)
-        self.pack(side="top", fill="both", expand=True)
+        # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # 'ConnectServer' Frame
         self.consrv_frame = Frame(self, width=350, height=150, pady=75)
@@ -480,7 +480,7 @@ class ConnectServer(Frame):
         # connect to server
         if makeconnection(self.controller.user, serveraddr_match.group(), serverport):
             logging.debug('Connected to server!')
-            self.controller.notify.start()
+            # self.controller.notify.start()
             self.controller.show_frame("Login")
         else:
             logging.debug('Connecting timeout! Please check your input!')
@@ -498,7 +498,7 @@ class Login(Frame):
     def __init__(self, master, controller):
         # init Frame
         Frame.__init__(self, master)
-        self.pack(side="top", fill="both", expand=True)
+        # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
 
         # User profile
@@ -597,7 +597,7 @@ class Joining(Frame):
     def __init__(self, master, controller):
         # init Frame
         Frame.__init__(self, master)
-        self.pack(side="top", fill="both", expand=True)
+        # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # welcome string
         self.welcome = StringVar()
@@ -650,6 +650,7 @@ class Joining(Frame):
                         f.update_scores(users)
 
                 self.controller.show_frame("GameSession")
+                self.controller.notify.start()
             else:
                 logging.debug('Game session is full!')
                 tkMessageBox.showwarning('Can not join game',
@@ -688,7 +689,7 @@ class NewSession(Frame):
     def __init__(self, master, controller):
         # init Frame
         Frame.__init__(self, master)
-        self.pack(side="top", fill="both", expand=True)
+        # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # welcome string
         self.welcome = StringVar()
@@ -756,6 +757,7 @@ class NewSession(Frame):
                         f.update_scores(users)
 
                 self.controller.show_frame("GameSession")
+                self.controller.notify.start()
         except ValueError:
             logging.debug('User didn''t input right limit number!')
             tkMessageBox.showwarning('Value Error', 'Please input right limit number!')
@@ -768,6 +770,7 @@ class NewSession(Frame):
 
     def PressReturn(self, e):
         self.create_game()
+        self.controller.notify.start()
 
 
 # **GameSession**---------------------------------------------------------------------------------------------------
@@ -776,7 +779,7 @@ class GameSession(Frame):
     def __init__(self, master, controller):
         # init Frame
         Frame.__init__(self, master)
-        self.pack(side="top", fill="both", expand=True)
+        # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # get user info
         self.user = self.controller.user
