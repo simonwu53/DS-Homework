@@ -13,7 +13,7 @@ ___VER = '0.1.0.0'
 ___DESC = 'Sudoku Server (TCP version)'
 ___BUILT = '2017-07-11'
 ___VENDOR = 'Copyright (c) 2017 Univeristy of Tartu Students team'
-__DEFAULT_SERVER_PORT = 8888
+__DEFAULT_SERVER_PORT = 8887
 __DEFAULT_ADDRESS = "127.0.0.1"
 TCP_RECEIVE_BUFFER_SIZE=1024*1024
 def __info():
