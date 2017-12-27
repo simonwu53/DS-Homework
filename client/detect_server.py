@@ -101,6 +101,7 @@ class detect_server(Thread):
 
 """---------------------------------------------------------------------------------------------------------------------
                                             Main
+    This is an example usage. Implement it in server main.
 ---------------------------------------------------------------------------------------------------------------------"""
 if __name__ == '__main__':
     log.info('Application start ...')
@@ -116,7 +117,7 @@ if __name__ == '__main__':
     # run forever
     # mc.join()
 
-    sleep(5)
+    sleep(60)
     mc.stop()
     print 'exit'
 
