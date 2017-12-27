@@ -98,6 +98,9 @@ class detect_server(Thread):
     def stop(self):
         self.__s.close()
 
+    def getlist(self):
+        return self.server_list
+
 
 """---------------------------------------------------------------------------------------------------------------------
                                             Main

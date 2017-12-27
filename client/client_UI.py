@@ -48,39 +48,6 @@ NOTI_WINNER = '3'
 
 
 """---------------------------------------------------------------------------------------------------------------------
-                                          User INFO
----------------------------------------------------------------------------------------------------------------------"""
-class Userinfo():
-    def __init__(self):
-        self.currentname = ''
-        self.names = ['Or select your previous names', ]
-        self.score = 0
-        self.gameid = 0
-
-    """set methods"""
-
-    def setname(self, n):
-        self.currentname = n
-
-    def setscore(self, n):
-        self.score = n
-
-    """get methods"""
-
-    def getname(self):
-        return self.currentname
-
-    def getscore(self):
-        return self.score
-
-    def getoldnames(self):
-        return self.names
-
-    def getgameid(self):
-        return self.gameid
-
-
-"""---------------------------------------------------------------------------------------------------------------------
                                           Client UI
 ---------------------------------------------------------------------------------------------------------------------"""
 # **Client**---------------------------------------------------------------------------------------------------
@@ -97,10 +64,15 @@ class Client(Tk):
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
-        # create user instance
-        self.user = Userinfo()
+        # store user profiles
+        self.currentname = ''
+        self.names = ['Or select your previous names', ]
+        self.score = 0
+        self.gameid = 0
+
+        # store client UI frames
         self.frames = {}
-        for F in (Login, ConnectServer, Joining, NewSession, GameSession):
+        for F in (ConnectServer,):
             page_name = F.__name__
             frame = F(master=container, controller=self)  # init page
             self.frames[page_name] = frame
@@ -130,6 +102,9 @@ class ConnectServer(Frame):
         # 'ConnectServer' Frame
         self.consrv_frame = Frame(self, width=350, height=150, pady=75)
         self.consrv_frame.pack()
+        # some variables
+        self.mc = None
+        self.serverlist = None
 
         # head label
         label = Label(self.consrv_frame, text='Choose your server', font=controller.title_font)
@@ -153,18 +128,48 @@ class ConnectServer(Frame):
         logging.debug('Loading *Connectserver* Page success!')
 
     def connect(self, e=None):
+        # stop detect server
+        self.close_detection()
+        # connect queue
+        # jump page
         return
 
     def server_detect(self):
         logging.debug('Started server detection!')
         mc_ip, mc_port = '239.1.1.1', 7778
-        mc = detect_server(mc_ip, mc_port)
-        mc.daemon = True
-        mc.start()
-        sleep(60)
-        mc.stop()
+        self.mc = detect_server(mc_ip, mc_port)
+        self.mc.daemon = True
+        self.mc.start()
+        return
+
+    def close_detection(self):
+        self.mc.stop()
         logging.debug('Stopped server detection!')
         return
 
     def update_srv(self):
+        # clear list box
+        self.srvlist.delete(0, END)
+        # get server list
+        self.serverlist = self.mc.getlist()
+        # update GUI
+        for server in self.serverlist:
+            self.srvlist.insert(END, server)
+        # update list regularly
+        self.srvlist.after(5000, self.update_srv)
         return
+
+    def prepare(self):
+        self.server_detect()
+        return
+
+
+"""---------------------------------------------------------------------------------------------------------------------
+                                            MAIN
+---------------------------------------------------------------------------------------------------------------------"""
+if __name__ == '__main__':
+    app = Client()
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        logging.warn('User terminated client!')
