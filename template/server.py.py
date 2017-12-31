@@ -9,14 +9,18 @@ from time import sleep
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(level=logging.WARN, format=FORMAT)
 LOG = logging.getLogger()
-
 """---------------------------------------------------------------------------------------------------------------------
-                                            Constants
+                                             Constants
+                                             
+    i) Server use double headers: Control code+SEP+RSP/NOTI+message
+   ii) Client use: REQ+SEP+message
+   eg. Client send: REQ_JOIN:1:shan 
+       Server reply: CTR_RSP:RSP_OK (no message) 
+       Server notify: CTR_NOT:NOTI_JOIN:shan
 ---------------------------------------------------------------------------------------------------------------------"""
 # msg sep
 MSG_SEP = ':'
 DTA_SEP = '/'
-SPE_SEP = '/:/'
 # control code
 CTR_NOT = '0'
 CTR_RSP = '1'
@@ -25,17 +29,21 @@ RSP_ERR = '0'
 RSP_OK = '1'
 RSP_DUP = '2'
 # client code
-REQ_NAME = '0'
-REQ_FECH = '1'
-REQ_QUIT = '2'
-REQ_USER = '3'
-REQ_CRAT = '4'
-REQ_INVT = '5'
-REQ_JOIN = '6'
-REQ_QROM = '7'
-REQ_RUSR = '8'
-REQ_MSGS = '9'
-REQ_PMSG = '$'
+REQ_NAME = '0'  #+
+REQ_CREATE = '1'   
+REQ_JOIN = '2'
+REQ_MOVE = '3'
+REQ_QUIT = '4'  # not on paper!! client send: `Header:gameid:username`
+                # server reply: `CTR_RSP:RSP_OK` notify others: `CTR_NOT:NOTI_QUIT:name`
+REQ_getRoom = '5'
+REQ_getSudoku = '6'
+REQ_getUser = '7'
+# notifications
+NOTI_JOIN = '0'
+NOTI_MOVE = '1'
+NOTI_QUIT = '2'
+NOTI_WINNER = '3'
+
 
 """---------------------------------------------------------------------------------------------------------------------
                                             Server Class
@@ -44,23 +52,21 @@ REQ_PMSG = '$'
 
 class Server:
     def __init__(self):
-        # chat room database
+
         self.users = {}  # username:queue
         self.lobby = {}  # pid:room name
-        self.hidden_lobby = {}  # hid:room name
-        self.rooms = {}  # id:[username]
-        self.id = 1
-        self.id_hidden = 1 # ar minda es da imis zemota da queue shi carieli iyos
+        self.rooms = {}  # game_id:[[usernames],limitation]
+        self.sudokus={}   # game_id:[[original_sudoku],[game_sudoku]]
         # connect to broker
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1')) #igive es da chANNELZE
         # declare channel
         self.channel = self.connection.channel()
         # declare server queue
-        self.channel.queue_declare(queue='rpc_queue')  # after this gei q name
+        self.channel.queue_declare(queue='')  # after this gei q name
         # process 1 task each time
         self.channel.basic_qos(prefetch_count=1)
         # set consume
-        self.channel.basic_consume(self.on_request, queue='rpc_queue', no_ack=True)
+        self.channel.basic_consume(self.on_request, queue='', no_ack=True)
         LOG.warn('Awaiting RPC requests')
 
     def on_request(self, ch, method, props, body):
@@ -79,16 +85,16 @@ class Server:
                 self.users[body] = props.reply_to
                 LOG.warn('Name valid, registered to database.')
                 # notification
-                target = self.users.copy()
-                del target[body]
-                target = target.values()
-                if target == []:
-                    target = None
-                else:
-                    noti_msg = '%s has registered to the application!' % body
+              #  target = self.users.copy()
+              #  del target[body]
+              #  target = target.values()
+              #  if target == []:
+              #      target = None
+              #  else:
+              #      noti_msg = CTR_not+MSG_sep+msg
         # REQ 1--------------------------------------------------------------------------------
-        elif body.startswith(REQ_FECH + MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_FECH)
+        elif body.startswith(REQ_CREATE + MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_CREATE)
             rsp = ''
             for key in self.lobby.keys():
                 rsp = rsp + str(key) + DTA_SEP + self.lobby[key] + MSG_SEP
