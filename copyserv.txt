@@ -29,14 +29,6 @@ CTR_RSP = '1'   #controle code about response
 RSP_ERR = '0'
 RSP_OK = '1'  
 RSP_DUP = '2'   #such name already exists!
-<<<<<<< HEAD:server/server.py
-<<<<<<< HEAD:server/server.py.py
-=======
-RSP_LATE = '3'
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
-=======
-RSP_LATE = '3'
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
 # client code
 REQ_NAME = '0'  # register new user
 REQ_CREATE = '1'    #user wants to create new game
@@ -130,17 +122,9 @@ class Server:
             game_id=int(msg[0])
             name=msg[1]
             noti_msg = ''
-<<<<<<< HEAD:server/server.py
-<<<<<<< HEAD:server/server.py.py
             rsp=''
             del self.rooms[game_id][name]
             del self.gameinfo[game_id][name]
-=======
-            del self.rooms[game_id][name]
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
-=======
-            del self.rooms[game_id][name]
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
                 del self.rooms[game_id]
                 del self.game[game_id]
@@ -186,8 +170,6 @@ class Server:
             LOG.warn('REQ code: %s' % REQ_getUser )
             rsp = ''
             msg=''
-<<<<<<< HEAD:server/server.py
-<<<<<<< HEAD:server/server.py.py
             body = body[2:]
             msgi=body.split(MSG_SEP)
             game_id=int(msgi[0])
@@ -199,36 +181,6 @@ class Server:
         # REQ 4--------------------------------------------------------------------------------
         elif body.startswith(REQ_getSudoku+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_getSudoku)
-=======
-=======
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
-            body = body[2:]
-            msgi=body.split(MSG_SEP)
-            game_id=int(msgi[0])
-            for user_name in self.roots[game_id]:  
-                msg +=  user_name + DTA_SEP + str(self.roots[game_id][user_name][0]) + MSG_SEP #header:username/score:username/score
-
-            rsp = CTR_RSP + MSG_SEP + msg
-            LOG.warn("user infos sent to server")
-        # REQ 4--------------------------------------------------------------------------------
-        elif body.startswith(REQ_getSudoku+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_getSudoku)
-            body = body[2:]
-            rsp = ''
-            msgi=body.split(MSG_SEP)
-            game_id=int(msgi[0])    #getting send game id 
-            sudokuu=self.game[game_id][0]
-            rsp=CTR_RSP + MSG_SEP +''.join(sudokuu)   #sudoku is fetched and sent
-            LOG.warn("sudoku sent to server")
-            
-     # REQ 5--------------------------------------------------------------------------------
-        elif body.startswith(REQ_getRoom+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_getRoom)
-          
-        # REQ 6--------------------------------------------------------------------------------
-        elif body.startswith(REQ_JOIN+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_JOIN)
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             body = body[2:]
             rsp = ''
             msgi=body.split(MSG_SEP)
@@ -253,14 +205,16 @@ class Server:
         # REQ move-------------------------------------------------------------------------------
         elif body.startswith(REQ_MOVE + MSG_SEP):
             msg = body[2:]
-            split_msg = msg.split(MSG_SEP)
+            split_msg = msg.split(DTA_SEP)
             gid = int(split_msg[0])
             sudoku = self.game[gid][0]
-            position = int(split_msg[1])
-            number = split_msg[2]
-            player = split_msg[3]
-            if sudoku[position] =='_': # if position is free    
-                correct_number = self.answers[gid][position] #find correct number in the sudoku answers    
+            position = int(split_msg[2])
+            number = split_msg[3]
+            player = split_msg[1]
+            if sudoku[position] =='_': # if position is free
+    
+                correct_number = self.answers[gid][position] #find correct number in the sudoku answers
+    
                 if number == correct_number:  #if the number is correct
                     x = self.rooms[gid][player][0] #find the user's previous score
                     x += 1  #increase by one
@@ -268,38 +222,34 @@ class Server:
                     self.rooms[gid][player][0] = x
                     logging.debug("correct move")
                     sudoku[position] = number #put the new number in the sudoku
-                    rsp = CTR_RSP + MSG_SEP + RSP_OK
                     if self.answers[gid] == self.game[gid][0]: # check if sudoku is full and notify the winner and users
-                        user_dict = self.rooms[gid]
-                        winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]                          
-                        target=self.gameinfo[gid]
-                        if target == []:
-                            target = None
-                        else:
-                            noti_msg = CTR_NOT + MSG_SEP + NOTI_WINNER + MSG_SEP + winner_user + MSG_SEP + x
+                        user_dict   = self.rooms[gid]
+                        winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]                       
+                        #assemble the message
+                        message = winner_user + DTA_SEP + str(user_dict[winner_user][0])
+                        """
+                        message=winner(gid)
+                        t = Thread(target=notification_thread, args=(message, gid))
+                        return __RSP_OK,t,None
                     else: # Game not finished notify the users about changed scores and sudoku
-                        target=self.gameinfo[gid]
-                        target.remove(player)
-                        if target == []:
-                            target = None
-                        else:
-                            noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE + MSG_SEP + self.gameinfo                                        
+                        message=notify(gid)
+                        t = Thread(target=notification_thread, args=(message, gid))
+                        message1=sudoku1(gid)
+                        t1=Thread(target=notification_thread, args=(message1, gid))
+                        return __RSP_OK, t, t1
+                        """
                 else: #wrong move , decrease the score of the user and update the scores, notify the users about changes
-                    x = int(self.rooms[gid][player][0])
+                    x = int(user[gid][player][0])
                     x -= 1
                     str(x)
                     self.rooms[gid][player][0] = x
                     logging.debug("wrong move")
-                    rsp = CTR_RSP + MSG_SEP + RSP_ERR
-                    target=self.gameinfo[gid]
-                    target.remove(player)
-                    if target == []:
-                        target = None
-                    else:
-                        noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE + MSG_SEP + self.gameinfo 
+                    #message = notify(gid)
+                    #t = Thread(target=notification_thread, args=(message, gid))
+                    return 
             else: #late move
                 logging.debug("late move")
-                rsp = CTR_RSP + MSG_SEP + RSP_LATE
+                return 
         # UNKNOW REQ---------------------------------------------------------------------------
         else:
             rsp = CTR_RSP + MSG_SEP + RSP_ERR
