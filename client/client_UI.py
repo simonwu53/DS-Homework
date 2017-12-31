@@ -8,6 +8,7 @@ import uuid
 import threading
 import time
 from detect_server import detect_server
+from user import User
 from time import sleep
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s', )
@@ -30,13 +31,14 @@ CTR_RSP = '1'
 RSP_ERR = '0'
 RSP_OK = '1'
 RSP_DUP = '2'
+RSP_LATE = '3'
 # client code
 REQ_NAME = '0'
 REQ_CREATE = '1'
 REQ_JOIN = '2'
 REQ_MOVE = '3'
 REQ_QUIT = '4'  # not on paper!! client send: `Header:gameid:username`
-                # server reply: `CTR_RSP:RSP_OK` notify others: `CTR_NOT:NOTI_QUIT:name`
+# server reply: `CTR_RSP:RSP_OK` notify others: `CTR_NOT:NOTI_QUIT:name`
 REQ_getRoom = '5'
 REQ_getSudoku = '6'
 REQ_getUser = '7'
@@ -50,6 +52,8 @@ NOTI_WINNER = '3'
 """---------------------------------------------------------------------------------------------------------------------
                                           Client UI
 ---------------------------------------------------------------------------------------------------------------------"""
+
+
 # **Client**---------------------------------------------------------------------------------------------------
 class Client(Tk):
     def __init__(self, *args, **kwargs):
@@ -64,16 +68,13 @@ class Client(Tk):
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
-        # store user profiles
-        self.currentname = ''
-        self.names = ['Or select your previous names', ]
-        self.score = 0
-        self.gameid = 0
-        self.server_q = None
+        # create user
+        self.user = User(self)
+        self.user.init_rabbitmq()
 
         # store client UI frames
         self.frames = {}
-        for F in (ConnectServer,):
+        for F in (ConnectServer, Lobby):
             page_name = F.__name__
             frame = F(master=container, controller=self)  # init page
             self.frames[page_name] = frame
@@ -114,11 +115,16 @@ class ConnectServer(Frame):
         # server list
         self.srvlist = Listbox(self.consrv_frame, height=10)
         self.srvlist.grid(row=1, column=0, columnspan=2)
+        # enter user name label
+        self.name_label = Label(self.consrv_frame, text='Enter your name: ')
+        self.name_label.grid(row=2, column=0, sticky=NSEW)
+        self.name_entry = Entry(self.consrv_frame)
+        self.name_entry.grid(row=2, column=1, sticky=NSEW)
         # submit button
         self.submit_button = Button(self.consrv_frame, text='Connnect', command=self.connect)
-        self.submit_button.grid(row=2, column=0, sticky=NSEW)
-        self.quit_button = Button(self.consrv_frame, text='Quit', command=self.quit)
-        self.quit_button.grid(row=2, column=1, sticky=NSEW)
+        self.submit_button.grid(row=3, column=0, sticky=NSEW)
+        self.quit_button = Button(self.consrv_frame, text='Quit', command=self.quit_client)
+        self.quit_button.grid(row=3, column=1, sticky=NSEW)
         # bind key
         self.srvlist.bind('<Return>', self.connect)
 
@@ -135,12 +141,17 @@ class ConnectServer(Frame):
             tkMessageBox.showwarning('Error occurred', 'Please select a server first!')
             return
         q = q[0]
-        print(q)
         # stop detect server
         # self.close_detection()
         # connect queue
         logging.debug('User has selected server: %s' % q)
+        self.controller.user.server_q = q
+        # get user name
+        name = self.name_entry.get()
+        # check username
+
         # jump page
+        # self.controller.show_frame('Lobby')
         return
 
     def server_detect(self):
@@ -171,6 +182,31 @@ class ConnectServer(Frame):
     def prepare(self):
         self.server_detect()
         return
+
+    def quit_client(self):
+        self.controller.user.connection.close()
+        self.quit()
+
+
+# **Lobby**---------------------------------------------------------------------------------------
+class Lobby(Frame):
+    def __init__(self, master, controller):
+        # init Frame
+        Frame.__init__(self, master)
+        # self.pack(side="top", fill="both", expand=True)
+        self.controller = controller
+        # 'ConnectServer' Frame
+        self.lobby_frame = Frame(self, width=350, height=150, pady=75)
+        self.lobby_frame.pack()
+        # some variables
+        self.mc = None
+        self.serverlist = None
+
+        # head label
+        label = Label(self.lobby_frame, text='Welcome', font=controller.title_font)
+        label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
+
+        logging.debug('Loading *Lobby* Page success!')
 
 
 """---------------------------------------------------------------------------------------------------------------------
