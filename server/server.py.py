@@ -96,8 +96,7 @@ class Server:
         elif body.startswith(REQ_CREATE + MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_CREATE)
             rsp = ''
-            for key in self.lobby.keys():
-                rsp = rsp + str(key) + DTA_SEP + self.lobby[key] + MSG_SEP
+            
             rsp = CTR_RSP + MSG_SEP + rsp
         # REQ 2--------------------------------------------------------------------------------
         elif body.startswith(REQ_QUIT+MSG_SEP):
