@@ -69,6 +69,7 @@ class Client(Tk):
         self.names = ['Or select your previous names', ]
         self.score = 0
         self.gameid = 0
+        self.server_q = None
 
         # store client UI frames
         self.frames = {}
@@ -128,6 +129,8 @@ class ConnectServer(Frame):
         logging.debug('Loading *Connectserver* Page success!')
 
     def connect(self, e=None):
+        # get user selection
+        q = [self.srvlist.get(idx) for idx in self.srvlist.curselection()]
         # stop detect server
         self.close_detection()
         # connect queue
