@@ -59,6 +59,7 @@ class Server:
         self.id=0 # game id , it will be increased as new games are created one by one
         self.answers={}  # {game_id:sudoku_answ}
         self.game={} #  {game id: [[sudoku_game], limit]}
+        self.gameinfo={}  #gameid:[list of people]
         # connect to broker
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1')) #igive es da chANNELZE
         # declare channel
@@ -98,6 +99,7 @@ class Server:
         elif body.startswith(REQ_CREATE + MSG_SEP):
             sudoku=[]
             score={}
+            names=[]
             LOG.warn('REQ code: %s' % REQ_CREATE)
             rsp = ''
             body = body[2:]
@@ -110,7 +112,9 @@ class Server:
             sudoku_answer, generated_sudoku = sudoku_generator.setup_sudoku(difficulty)
             sudoku.append(generated_sudoku)
             sudoku.append(limit)
+            names.append(username)
             self.game[id] = sudoku
+            self.gameinfo[id]=names
             self.answers[id] = sudoku_answer
             score[username] = 0 # saving score 
             self.room[id] = self.score
@@ -127,6 +131,31 @@ class Server:
                 # print e
             rsp = CTR_RSP + MSG_SEP + RSP_OK
             LOG.warn('User %s has quit!' % body)
+        elif body.startswith(REQ_JOIN+MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_QUIT)
+            body = body[2:]
+            msg=body.split(MSG_SEP)
+            game_id=int(msg[0])
+            name=msg[1]
+            if (len(self.rooms[game_id]) > self.game[game_id][1]):
+                rsp=CTR_RSP + MSG_SEP + RSP_ERR   # limit is already reached at this game session
+                print("limit reached")
+            self.rooms[game_id][name] = 0 # otherwise user is registered to the wanted game session and started from the score 0.
+            self.gameinfo[game_id].append(name)
+           # if (len(self.rooms[game_id]) == self.game[game_id][1]):  # if limit is full ????????????
+                
+            #else:      # notify player joined
+            #notification
+            target = self.users.copy()
+            del target[body]
+            target = target.values()
+            if target == []:
+                target = None
+            else:
+                noti_msg = CTR_not+MSG_SEP+msg
+            
+             
+            
         # REQ 3--------------------------------------------------------------------------------
         elif body.startswith(REQ_USER+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_USER)
