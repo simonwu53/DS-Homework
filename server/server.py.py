@@ -324,9 +324,9 @@ class Server:
             split_msg = msg.split(DTA_SEP)
             gid = int(split_msg[0])
             sudoku = self.game[gid][0]
-            position = int(split_msg[2])
-            number = split_msg[3]
-            player = split_msg[1]
+            position = int(split_msg[1])
+            number = split_msg[2]
+            player = split_msg[3]
             if sudoku[position] =='_': # if position is free
     
                 correct_number = self.answers[gid][position] #find correct number in the sudoku answers
@@ -338,30 +338,41 @@ class Server:
                     self.rooms[gid][player][0] = x
                     logging.debug("correct move")
                     sudoku[position] = number #put the new number in the sudoku
+                    target=self.gameinfo[gid]
+                    target.remove(player)
+                    if target == []:
+                        target = None
+                    else:
+                        noti_msg = CTR_NOT+MSG_SEP  # notification about correct move                            
+                    return RSP_OK
                     if self.answers[gid] == self.game[gid][0]: # check if sudoku is full and notify the winner and users
                         user_dict   = self.rooms[gid]
                         winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]                       
                         #assemble the message
                         message = winner_user + DTA_SEP + str(user_dict[winner_user][0])
-                        """
-                        message=winner(gid)
-                        t = Thread(target=notification_thread, args=(message, gid))
-                        return __RSP_OK,t,None
+                        target=self.gameinfo[gid]
+                        target.remove(player)
+                        if target == []:
+                            target = None
+                        else:
+                            noti_msg = CTR_NOT+MSG_SEP+message
+                            return RSP_OK
+                    
                     else: # Game not finished notify the users about changed scores and sudoku
-                        message=notify(gid)
-                        t = Thread(target=notification_thread, args=(message, gid))
-                        message1=sudoku1(gid)
-                        t1=Thread(target=notification_thread, args=(message1, gid))
-                        return __RSP_OK, t, t1
-                        """
+                        return
+                       
                 else: #wrong move , decrease the score of the user and update the scores, notify the users about changes
                     x = int(user[gid][player][0])
                     x -= 1
                     str(x)
                     self.rooms[gid][player][0] = x
                     logging.debug("wrong move")
-                    #message = notify(gid)
-                    #t = Thread(target=notification_thread, args=(message, gid))
+                    target=self.gameinfo[gid]
+                    target.remove(player)
+                    if target == []:
+                        target = None
+                    else:
+                        noti_msg = CTR_NOT+MSG_SEP 
                     return 
             else: #late move
                 logging.debug("late move")
