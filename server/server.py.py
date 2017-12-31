@@ -2,7 +2,7 @@ import logging
 import pika
 import threading
 from time import sleep
-
+import sudoku_generator
 """---------------------------------------------------------------------------------------------------------------------
                                             LOG info
 ---------------------------------------------------------------------------------------------------------------------"""
@@ -54,9 +54,11 @@ class Server:
     def __init__(self):
 
         self.users = {}  # username:queue
-        self.lobby = {}  # pid:room name
-        self.rooms = {}  # game_id:[[usernames],limitation]
-        self.sudokus={}   # game_id:[[original_sudoku],[game_sudoku]]
+        self.rooms = {}  # {game_id:{username:score}}
+        #self.score={} #here username and score will be stored {username:score}
+        self.id=0 # game id , it will be increased as new games are created one by one
+        self.answers={}  # {game_id:sudoku_answ}
+        self.game={} #  {game id: [[sudoku_game], limit]}
         # connect to broker
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1')) #igive es da chANNELZE
         # declare channel
@@ -94,10 +96,26 @@ class Server:
               #      noti_msg = CTR_not+MSG_sep+msg
         # REQ 1--------------------------------------------------------------------------------
         elif body.startswith(REQ_CREATE + MSG_SEP):
+            sudoku=[]
+            score={}
             LOG.warn('REQ code: %s' % REQ_CREATE)
             rsp = ''
+            body = body[2:]
+            msg=body.split(MSG_SEP)
+            difficulty=msg[0]
+            limit=msg[1]
+            username=msg[2]
+            id += 1  # game ids will start from 1
+            str_id = str(id)
+            sudoku_answer, generated_sudoku = sudoku_generator.setup_sudoku(difficulty)
+            sudoku.append(generated_sudoku)
+            sudoku.append(limit)
+            self.game[id] = sudoku
+            self.answers[id] = sudoku_answer
+            score[username] = 0 # saving score 
+            self.room[id] = self.score
+            rsp = CTR_RSP +  MSG_SEP+ str_id
             
-            rsp = CTR_RSP + MSG_SEP + rsp
         # REQ 2--------------------------------------------------------------------------------
         elif body.startswith(REQ_QUIT+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_QUIT)
