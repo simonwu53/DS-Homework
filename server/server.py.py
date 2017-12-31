@@ -3,6 +3,7 @@ import pika
 import threading
 from time import sleep
 import sudoku_generator
+import operator
 """---------------------------------------------------------------------------------------------------------------------
                                             LOG info
 ---------------------------------------------------------------------------------------------------------------------"""
@@ -317,6 +318,54 @@ class Server:
             # send notification
             noti_msg = REQ_PMSG + MSG_SEP + newmsg
             rsp = CTR_RSP + MSG_SEP + RSP_OK
+        # REQ 11-------------------------------------------------------------------------------
+        elif body.startswith(REQ_MOVE + MSG_SEP):
+            msg = body[2:]
+            split_msg = msg.split(DTA_SEP)
+            gid = int(split_msg[0])
+            sudoku = self.game[gid][0]
+            position = int(split_msg[2])
+            number = split_msg[3]
+            player = split_msg[1]
+            if sudoku[position] =='_': # if position is free
+    
+                correct_number = self.answers[gid][position] #find correct number in the sudoku answers
+    
+                if number == correct_number:  #if the number is correct
+                    x = self.rooms[gid][player][0] #find the user's previous score
+                    x += 1  #increase by one
+                    str(x) #make it string and update the score
+                    self.rooms[gid][player][0] = x
+                    logging.debug("correct move")
+                    sudoku[position] = number #put the new number in the sudoku
+                    if self.answers[gid] == self.game[gid][0]: # check if sudoku is full and notify the winner and users
+                        user_dict   = self.rooms[gid]
+                        winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]                       
+                        #assemble the message
+                        message = winner_user + DTA_SEP + str(user_dict[winner_user][0])
+                        """
+                        message=winner(gid)
+                        t = Thread(target=notification_thread, args=(message, gid))
+                        return __RSP_OK,t,None
+                    else: # Game not finished notify the users about changed scores and sudoku
+                        message=notify(gid)
+                        t = Thread(target=notification_thread, args=(message, gid))
+                        message1=sudoku1(gid)
+                        t1=Thread(target=notification_thread, args=(message1, gid))
+                        return __RSP_OK, t, t1
+                        """
+                else: #wrong move , decrease the score of the user and update the scores, notify the users about changes
+                    x = int(user[gid][player][0])
+                    x -= 1
+                    str(x)
+                    self.rooms[gid][player][0] = x
+                    logging.debug("wrong move")
+                    #message = notify(gid)
+                    #t = Thread(target=notification_thread, args=(message, gid))
+                    return 
+            else: #late move
+                logging.debug("late move")
+                return 
         # UNKNOW REQ---------------------------------------------------------------------------
         else:
             rsp = CTR_RSP + MSG_SEP + RSP_ERR
