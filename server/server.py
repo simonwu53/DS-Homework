@@ -29,14 +29,7 @@ CTR_RSP = '1'   #controle code about response
 RSP_ERR = '0'
 RSP_OK = '1'  
 RSP_DUP = '2'   #such name already exists!
-<<<<<<< HEAD:server/server.py
-<<<<<<< HEAD:server/server.py.py
-=======
 RSP_LATE = '3'
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
-=======
-RSP_LATE = '3'
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
 # client code
 REQ_NAME = '0'  # register new user
 REQ_CREATE = '1'    #user wants to create new game
@@ -130,17 +123,12 @@ class Server:
             game_id=int(msg[0])
             name=msg[1]
             noti_msg = ''
-<<<<<<< HEAD:server/server.py
-<<<<<<< HEAD:server/server.py.py
+
             rsp=''
             del self.rooms[game_id][name]
             del self.gameinfo[game_id][name]
-=======
             del self.rooms[game_id][name]
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
-=======
             del self.rooms[game_id][name]
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
                 del self.rooms[game_id]
                 del self.game[game_id]
@@ -186,8 +174,6 @@ class Server:
             LOG.warn('REQ code: %s' % REQ_getUser )
             rsp = ''
             msg=''
-<<<<<<< HEAD:server/server.py
-<<<<<<< HEAD:server/server.py.py
             body = body[2:]
             msgi=body.split(MSG_SEP)
             game_id=int(msgi[0])
@@ -199,9 +185,6 @@ class Server:
         # REQ 4--------------------------------------------------------------------------------
         elif body.startswith(REQ_getSudoku+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_getSudoku)
-=======
-=======
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             body = body[2:]
             msgi=body.split(MSG_SEP)
             game_id=int(msgi[0])
@@ -228,7 +211,6 @@ class Server:
         # REQ 6--------------------------------------------------------------------------------
         elif body.startswith(REQ_JOIN+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_JOIN)
->>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             body = body[2:]
             rsp = ''
             msgi=body.split(MSG_SEP)
