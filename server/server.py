@@ -29,7 +29,11 @@ CTR_RSP = '1'   #controle code about response
 RSP_ERR = '0'
 RSP_OK = '1'  
 RSP_DUP = '2'   #such name already exists!
+<<<<<<< HEAD:server/server.py
 <<<<<<< HEAD:server/server.py.py
+=======
+RSP_LATE = '3'
+>>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
 =======
 RSP_LATE = '3'
 >>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
@@ -126,10 +130,14 @@ class Server:
             game_id=int(msg[0])
             name=msg[1]
             noti_msg = ''
+<<<<<<< HEAD:server/server.py
 <<<<<<< HEAD:server/server.py.py
             rsp=''
             del self.rooms[game_id][name]
             del self.gameinfo[game_id][name]
+=======
+            del self.rooms[game_id][name]
+>>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
 =======
             del self.rooms[game_id][name]
 >>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
@@ -178,6 +186,7 @@ class Server:
             LOG.warn('REQ code: %s' % REQ_getUser )
             rsp = ''
             msg=''
+<<<<<<< HEAD:server/server.py
 <<<<<<< HEAD:server/server.py.py
             body = body[2:]
             msgi=body.split(MSG_SEP)
@@ -191,6 +200,8 @@ class Server:
         elif body.startswith(REQ_getSudoku+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_getSudoku)
 =======
+=======
+>>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             body = body[2:]
             msgi=body.split(MSG_SEP)
             game_id=int(msgi[0])
