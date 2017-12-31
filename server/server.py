@@ -29,6 +29,7 @@ CTR_RSP = '1'   #controle code about response
 RSP_ERR = '0'
 RSP_OK = '1'  
 RSP_DUP = '2'   #such name already exists!
+RSP_LATE = '3'
 # client code
 REQ_NAME = '0'  # register new user
 REQ_CREATE = '1'    #user wants to create new game
