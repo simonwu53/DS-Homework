@@ -131,9 +131,15 @@ class ConnectServer(Frame):
     def connect(self, e=None):
         # get user selection
         q = [self.srvlist.get(idx) for idx in self.srvlist.curselection()]
+        if not q:
+            tkMessageBox.showwarning('Error occurred', 'Please select a server first!')
+            return
+        q = q[0]
+        print(q)
         # stop detect server
-        self.close_detection()
+        # self.close_detection()
         # connect queue
+        logging.debug('User has selected server: %s' % q)
         # jump page
         return
 

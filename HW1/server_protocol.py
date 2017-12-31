@@ -1,6 +1,4 @@
 import logging
-import time
-import numpy as np
 import sudoku_generator
 import operator
 from threading import Thread
