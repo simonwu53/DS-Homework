@@ -23,27 +23,32 @@ LOG = logging.getLogger()
 MSG_SEP = ':'
 DTA_SEP = '/'
 # control code
-CTR_NOT = '0'
-CTR_RSP = '1'
+CTR_NOT = '0'   #controle code about notification
+CTR_RSP = '1'   #controle code about response
 # server response
 RSP_ERR = '0'
-RSP_OK = '1'
-RSP_DUP = '2'
+RSP_OK = '1'  
+RSP_DUP = '2'   #such name already exists!
+<<<<<<< HEAD:server/server.py.py
+=======
+RSP_LATE = '3'
+>>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
 # client code
-REQ_NAME = '0'  #+
-REQ_CREATE = '1'   
-REQ_JOIN = '2'
-REQ_MOVE = '3'
-REQ_QUIT = '4'  # not on paper!! client send: `Header:gameid:username`
+REQ_NAME = '0'  # register new user
+REQ_CREATE = '1'    #user wants to create new game
+REQ_JOIN = '2'   #user wants to join existing game
+REQ_MOVE = '3'    #user wants to move
+REQ_QUIT = '4'  # client send: `Header:gameid:username`
                 # server reply: `CTR_RSP:RSP_OK` notify others: `CTR_NOT:NOTI_QUIT:name`
-REQ_getRoom = '5'
-REQ_getSudoku = '6'
-REQ_getUser = '7'
+                #user wants to quit
+REQ_getRoom = '5'  #geting game session
+REQ_getSudoku = '6'   #fetch sudoku !
+REQ_getUser = '7'   #get user info like: username/score:username/score
 # notifications
-NOTI_JOIN = '0'
-NOTI_MOVE = '1'
-NOTI_QUIT = '2'
-NOTI_WINNER = '3'
+NOTI_JOIN = '0'    #notificate user about joining new person
+NOTI_MOVE = '1'    #notify about move
+NOTI_QUIT = '2'    #notify somebody quitted
+NOTI_WINNER = '3'   #announce the winner
 
 
 """---------------------------------------------------------------------------------------------------------------------
@@ -62,11 +67,11 @@ class Server:
         self.game={} #  {game id: [[sudoku_game], limit]}
         self.gameinfo={}  #gameid:[list of people]
         # connect to broker
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1')) #igive es da chANNELZE
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1')) 
         # declare channel
         self.channel = self.connection.channel()
         # declare server queue
-        self.channel.queue_declare(queue='')  # after this gei q name
+        self.channel.queue_declare(queue='')  
         # process 1 task each time
         self.channel.basic_qos(prefetch_count=1)
         # set consume
@@ -75,7 +80,6 @@ class Server:
 
     def on_request(self, ch, method, props, body):
         target = None
-        noti_msg = ''
         # REQ 0--------------------------------------------------------------------------------
         if body.startswith(REQ_NAME + MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_NAME)
@@ -88,14 +92,7 @@ class Server:
                 # register user
                 self.users[body] = props.reply_to
                 LOG.warn('Name valid, registered to database.')
-                # notification
-              #  target = self.users.copy()
-              #  del target[body]
-              #  target = target.values()
-              #  if target == []:
-              #      target = None
-              #  else:
-              #      noti_msg = CTR_not+MSG_sep+msg
+        
         # REQ 1--------------------------------------------------------------------------------
         elif body.startswith(REQ_CREATE + MSG_SEP):
             sudoku=[]
@@ -125,200 +122,124 @@ class Server:
         elif body.startswith(REQ_QUIT+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_QUIT)
             body = body[2:]
-            try:
-                del self.users[body]  # clear user
-            except ValueError as e:
-                LOG.warn('Can''t find user!')
-                # print e
-            rsp = CTR_RSP + MSG_SEP + RSP_OK
-            LOG.warn('User %s has quit!' % body)
+            msg=body.split(MSG_SEP)
+            game_id=int(msg[0])
+            name=msg[1]
+            noti_msg = ''
+<<<<<<< HEAD:server/server.py.py
+            rsp=''
+            del self.rooms[game_id][name]
+            del self.gameinfo[game_id][name]
+=======
+            del self.rooms[game_id][name]
+>>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
+            if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
+                del self.rooms[game_id]
+                del self.game[game_id]
+                del self.answers[game_id]
+                del self.gameinfo[game_id] 
+                rsp = CTR_RSP +  MSG_SEP+ RSP_OK
+            else:
+                target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
+                target.remove(name)
+                rsp = CTR_RSP +  MSG_SEP+ RSP_OK
+                if target == []:
+                    target = None
+                else:
+                    noti_msg = CTR_NOT+MSG_SEP+NOTI_QUIT+MSG_SEP+name
+            
+                    LOG.warn('User %s has quit!' % body)
         elif body.startswith(REQ_JOIN+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_QUIT)
+            LOG.warn('REQ code: %s' % REQ_JOIN)
             body = body[2:]
             msg=body.split(MSG_SEP)
             game_id=int(msg[0])
             name=msg[1]
+            noti_msg = ''
+            rsp=''
             if (len(self.rooms[game_id]) > self.game[game_id][1]):
                 rsp=CTR_RSP + MSG_SEP + RSP_ERR   # limit is already reached at this game session
-                print("limit reached")
+                LOG.warn("limit reached")
             self.rooms[game_id][name] = 0 # otherwise user is registered to the wanted game session and started from the score 0.
             self.gameinfo[game_id].append(name)
-           # if (len(self.rooms[game_id]) == self.game[game_id][1]):  # if limit is full ????????????
-                
-            #else:      # notify player joined
             #notification
-            target = self.users.copy()
-            del target[body]
-            target = target.values()
+            LOG.warn("new user joined")
+            rsp= CTR_RSP + MSG_SEP + RSP_OK
+            target = self.gameinfo[game_id]
+            target.remove(name)
             if target == []:
                 target = None
             else:
-                noti_msg = CTR_not+MSG_SEP+msg
-            
-             
+                noti_msg = CTR_NOT + MSG_SEP + NOTI_JOIN + MSG_SEP + name
+                LOG.warn("notification to users sent")
             
         # REQ 3--------------------------------------------------------------------------------
-        elif body.startswith(REQ_USER+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_USER)
+        elif body.startswith(REQ_getUser +MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_getUser )
             rsp = ''
-            for key in self.users.keys():
-                rsp = rsp + str(key) + MSG_SEP
-            rsp = CTR_RSP + MSG_SEP + rsp
+            msg=''
+<<<<<<< HEAD:server/server.py.py
+            body = body[2:]
+            msgi=body.split(MSG_SEP)
+            game_id=int(msgi[0])
+            for user_name in self.roots[game_id]:  
+                msg +=  user_name + DTA_SEP + str(self.roots[game_id][user_name][0]) + MSG_SEP #header:username/score:username/score
+
+            rsp = CTR_RSP + MSG_SEP + msg
+            LOG.warn("user infos sent to server")
         # REQ 4--------------------------------------------------------------------------------
-        elif body.startswith(REQ_CRAT+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_CRAT)
+        elif body.startswith(REQ_getSudoku+MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_getSudoku)
+=======
             body = body[2:]
-            pid, hid = None, None
-            # register room and topic
-            infolist = body.split(MSG_SEP)
-            if infolist[1] == 'Public':
-                # register public room
-                pid = 'p' + str(self.id)
-                self.lobby[pid] = infolist[0]
-                rsp = CTR_RSP + MSG_SEP + pid
-                self.id += 1
-                # join room
-                username = self.users.keys()[self.users.values().index(props.reply_to)]
-                self.rooms[pid] = [username]
-            else:
-                # register private room
-                hid = 'h' + str(self.id_hidden)
-                self.hidden_lobby[hid] = infolist[0]
-                rsp = CTR_RSP + MSG_SEP + hid
-                self.id_hidden += 1
-                # join room
-                username = self.users.keys()[self.users.values().index(props.reply_to)]
-                self.rooms[hid] = [username]
-            # do invitation
-            if infolist[2] == '':
-                pass
-            else:
-                target = []
-                invitations = infolist[2].split(DTA_SEP)
-                invitations = invitations[:-1]
-                for invitation in invitations:
-                    target.append(self.users[invitation])
-                if pid:
-                    noti_msg = REQ_INVT + MSG_SEP + pid + MSG_SEP + self.lobby[pid]
-                elif hid:
-                    noti_msg = REQ_INVT + MSG_SEP + hid + MSG_SEP + self.hidden_lobby[hid]
-        # REQ 5--------------------------------------------------------------------------------
-        elif body.startswith(REQ_INVT+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_INVT)
+            msgi=body.split(MSG_SEP)
+            game_id=int(msgi[0])
+            for user_name in self.roots[game_id]:  
+                msg +=  user_name + DTA_SEP + str(self.roots[game_id][user_name][0]) + MSG_SEP #header:username/score:username/score
+
+            rsp = CTR_RSP + MSG_SEP + msg
+            LOG.warn("user infos sent to server")
+        # REQ 4--------------------------------------------------------------------------------
+        elif body.startswith(REQ_getSudoku+MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_getSudoku)
             body = body[2:]
-            target = []
-            infos = body.split(MSG_SEP)
-            roomid = infos[0]
-            invitations = infos[1].split(DTA_SEP)
-            invitations = invitations[:-1]
-            for invitation in invitations:
-                target.append(self.users[invitation])
-            if roomid.startswith('p'):
-                noti_msg = REQ_INVT + MSG_SEP + roomid + MSG_SEP + self.lobby[roomid]
-            else:
-                noti_msg = REQ_INVT + MSG_SEP + roomid + MSG_SEP + self.hidden_lobby[roomid]
-            rsp = CTR_RSP + MSG_SEP + RSP_OK
+            rsp = ''
+            msgi=body.split(MSG_SEP)
+            game_id=int(msgi[0])    #getting send game id 
+            sudokuu=self.game[game_id][0]
+            rsp=CTR_RSP + MSG_SEP +''.join(sudokuu)   #sudoku is fetched and sent
+            LOG.warn("sudoku sent to server")
+            
+     # REQ 5--------------------------------------------------------------------------------
+        elif body.startswith(REQ_getRoom+MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_getRoom)
+          
         # REQ 6--------------------------------------------------------------------------------
         elif body.startswith(REQ_JOIN+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_JOIN)
+>>>>>>> 1dd424c3118163605bfc9c57fb60a650e9745a5b:server/server.py
             body = body[2:]
-            target = []
-            username = self.users.keys()[self.users.values().index(props.reply_to)]
-            # check if he is from an invitation and already in a room
-            for values in self.rooms.values():
-                if username in values:
-                    # get room id
-                    roomid = self.rooms.keys()[self.rooms.values().index(values)]
-                    # quit the room
-                    values.remove(username)
-                    if values == []:
-                        LOG.warn('No one in the room, clean the room...')
-                        del self.rooms[roomid]
-                        if roomid.startswith('p'):
-                            del self.lobby[roomid]
-                        elif roomid.startswith('h'):
-                            del self.hidden_lobby[roomid]
-            # find room
-            userlist = self.rooms[body]
-            # prepare notification
-            for user in userlist:
-                target.append(self.users[user])
-            noti_msg = '%s has joined the chat room!' % username
-            # join room
-            userlist.append(username)
-            rsp = CTR_RSP + MSG_SEP + RSP_OK
-        # REQ 7--------------------------------------------------------------------------------
-        elif body.startswith(REQ_QROM+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_QROM)
-            roomid = body[2:]
-            username = self.users.keys()[self.users.values().index(props.reply_to)]
-            # delete user from room
-            userlist = self.rooms[roomid]
-            userlist.remove(username)
-            self.rooms[roomid] = userlist
-            LOG.warn('%s has quit the room.' % username)
-            if userlist == []:
-                LOG.warn('No one in the room, clean the room...')
-                del self.rooms[roomid]
-                if roomid.startswith('p'):
-                    del self.lobby[roomid]
-                elif roomid.startswith('h'):
-                    del self.hidden_lobby[roomid]
-            else:
-                # there is people, notify leaving
-                target = []
-                for user in userlist:
-                    target.append(self.users[user])
-                noti_msg = '%s has left the chat room!' % username
-            rsp = CTR_RSP + MSG_SEP + RSP_OK
-        # REQ 8--------------------------------------------------------------------------------
-        elif body.startswith(REQ_RUSR+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_RUSR)
-            roomid = body[2:]
-            # get room users
-            userlist = self.rooms[roomid]
             rsp = ''
-            for user in userlist:
-                rsp = rsp + user + MSG_SEP
-            rsp = CTR_RSP + MSG_SEP + rsp
-        # REQ 9--------------------------------------------------------------------------------
-        elif body.startswith(REQ_MSGS+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_MSGS)
-            msg = body[2:]
-            users = None
-            target = []
-            username = self.users.keys()[self.users.values().index(props.reply_to)]
-            for userlist in self.rooms.values():
-                if username in userlist:
-                    users = list(userlist)
-            users.remove(username)
-            for user in users:
-                target.append(self.users[user])
-            # if no others, don't send notification
-            if target == []:
-                target = None
-            else:
-                # add header for notification
-                noti_msg = REQ_MSGS + MSG_SEP + msg
-            # send rsp
-            rsp = CTR_RSP + MSG_SEP + RSP_OK
-        # REQ 10-------------------------------------------------------------------------------
-        elif body.startswith(REQ_PMSG+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_PMSG)
-            msg = body[2:]
-            # get from where
-            username = self.users.keys()[self.users.values().index(props.reply_to)]
-            # get to where
-            msginfo = msg.split(SPE_SEP)
-            towhom = msginfo[0]
-            # prepare notification
-            target = [self.users[towhom]]
-            # assemble new msg
-            newmsg = username + SPE_SEP + msginfo[1]
-            # send notification
-            noti_msg = REQ_PMSG + MSG_SEP + newmsg
-            rsp = CTR_RSP + MSG_SEP + RSP_OK
-        # REQ 11-------------------------------------------------------------------------------
+            msgi=body.split(MSG_SEP)
+            game_id=int(msgi[0])    #getting send game id 
+            sudokuu=self.game[game_id][0]
+            rsp=CTR_RSP + MSG_SEP +''.join(sudokuu)   #sudoku is fetched and sent
+            LOG.warn("sudoku sent to server")
+            
+     # REQ 5--------------------------------------------------------------------------------
+        elif body.startswith(REQ_getRoom+MSG_SEP):
+            LOG.warn('REQ code: %s' % REQ_getRoom)
+            msg = ''
+            rsp=''
+            for key in self.game:
+                numb_players = str(len(self.rooms[key]))
+                msg += str(key) + DTA_SEP + numb_players + DTA_SEP +  self.game[key][1] 
+            msg += MSG_SEP
+            rsp=CTR_RSP + MSG_SEP + msg
+          # 1:1/5/4:   this kind of string will be returned. header:gameid/players/limit
+
+       
+        # REQ move-------------------------------------------------------------------------------
         elif body.startswith(REQ_MOVE + MSG_SEP):
             msg = body[2:]
             split_msg = msg.split(DTA_SEP)
