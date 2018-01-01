@@ -88,6 +88,8 @@ class User(object):
             msg = body[2:]
             if msg.startswith(NOTI_JOIN + MSG_SEP):
                 self.response = msg[2:]
+            elif msg.startswith(NOTI_MOVE + MSG_SEP):
+                self.response = []
         # if response
         elif body.startswith(CTR_RSP + MSG_SEP):
             body = body[2:]
