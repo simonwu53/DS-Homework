@@ -74,7 +74,7 @@ class Client(Tk):
 
         # store client UI frames
         self.frames = {}
-        for F in (ConnectServer, Lobby, Newroom):
+        for F in (ConnectServer, Lobby, Newroom, Gamesession):
             page_name = F.__name__
             frame = F(master=container, controller=self)  # init page
             self.frames[page_name] = frame
@@ -217,7 +217,7 @@ class Lobby(Frame):
         Frame.__init__(self, master)
         # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
-        # 'ConnectServer' Frame
+        # 'Lobby' Frame
         self.lobby_frame = Frame(self, width=350, height=150, pady=50)
         self.lobby_frame.pack()
 
@@ -261,6 +261,23 @@ class Lobby(Frame):
 
     def join(self):
         # join game session
+        # get selection
+        id = [self.sessionlist.get(idx) for idx in self.sessionlist.curselection()]
+        id = id[0]  # get first element in list
+        id = id[0]  # get first character in element
+        # send request
+        req = id + MSG_SEP + self.controller.user.name
+        rsp = self.controller.user.call(REQ_JOIN, req)
+        if rsp == RSP_OK:
+            logging.debug('[*] Game ID is: %s' % id)
+            self.controller.user.gameid = int(id)
+            # prepare sudoku
+            frame = self.controller.frames['Gamesession']
+            frame.prepare()
+            # turn page
+            self.controller.show_frame("Gamesession")
+        else:
+            tkMessageBox.showwarning('Error occurred', 'This room is already full!')
         return
 
     def create(self):
@@ -285,7 +302,7 @@ class Newroom(Frame):
         Frame.__init__(self, master)
         # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
-        # 'ConnectServer' Frame
+        # 'newroom' Frame
         self.newroom_frame = Frame(self, width=350, height=150, pady=50)
         self.newroom_frame.pack()
         # variables
@@ -330,15 +347,101 @@ class Newroom(Frame):
         # send req
         req = diffi + MSG_SEP + limit + MSG_SEP + self.controller.user.name
         rsp = self.controller.user.call(REQ_CREATE, req)
-        print(rsp)
         # set game id
         self.controller.user.gameid = int(rsp)
+        logging.debug('[*] Game ID is: %s' % rsp)
+        # prepare sudoku
+        frame = self.controller.frames['Gamesession']
+        frame.prepare()
+        # turn page
+        self.controller.show_frame("Gamesession")
         return
 
     def back(self):
         # back to lobby
         self.limit_entry.delete(0, END)
         self.controller.show_frame("Lobby")
+        return
+
+
+# **Gamesession**---------------------------------------------------------------------------------------
+class Gamesession(Frame):
+    def __init__(self, master, controller):
+        # init Frame
+        Frame.__init__(self, master)
+        # self.pack(side="top", fill="both", expand=True)
+        self.controller = controller
+        # 'Gamesession' Frame
+        self.game_header_frame = Frame(self, width=350, height=100)
+        self.game_content_frame = Frame(self, width=350, height=300)
+        self.game_footer_frame = Frame(self, width=100, height=50, padx=100)
+
+        self.game_header_frame.grid(row=0, column=0, sticky=NSEW)
+        self.game_content_frame.grid(row=1, column=0, sticky=NSEW)
+        self.game_footer_frame.grid(row=2, column=0, sticky=NSEW)
+        self.game_header_frame.grid_propagate(0)
+        self.game_content_frame.grid_propagate(0)
+        self.game_footer_frame.grid_propagate(0)
+
+        """Variables"""
+        self.welcome = StringVar()
+        self.welcome.set('Waiting opponents...')
+
+        """header frame"""
+        # Slogan welcome
+        label = Label(self.game_header_frame, textvariable=self.welcome, font=controller.title_font)
+        label.grid(row=0, column=0, columnspan=16, sticky=NSEW, padx=(75, 75))
+
+        """footer frame"""
+        # submit
+        self.submit_button = Button(self.game_footer_frame, text='Submit', command=self.submit_move, width=6)
+        self.submit_button.grid(row=0, column=0, sticky=NSEW)
+        self.submit_button.configure(state='disabled')  # waiting for game start
+        # quit
+        self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit_game, width=6)
+        self.exit_button.grid(row=0, column=1, sticky=NSEW)
+        # notifications
+        pass
+
+        """content frame"""
+        # sudoku setup
+        self.puzzle = []
+        self.entries = {}
+        self.puzzle_labels = []
+
+        logging.debug('Loading *GameSession* Page success!')
+
+    def prepare(self):
+        # prepare sudoku & ui
+        return
+
+    def update_user(self):
+        return
+
+    def update_sudoku(self):
+        # clear ui
+        pass
+        # send req
+        pass
+        # update ui
+        count = 0
+        for i in range(9):
+            for j in range(9):
+                if self.puzzle[count] == '_':
+                    insert_entry = Entry(self.game_content_frame, width=3)
+                    insert_entry.grid(row=i, column=j, sticky=NSEW)
+                    self.entries[insert_entry] = count
+                else:
+                    insert_label = Label(self.game_content_frame, text=self.puzzle[count])
+                    insert_label.grid(row=i, column=j, sticky=NSEW)
+                    self.puzzle_labels.append(insert_label)
+                count += 1
+        return
+
+    def submit_move(self):
+        return
+
+    def quit_game(self):
         return
 
 
