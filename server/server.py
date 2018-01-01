@@ -4,6 +4,8 @@ import threading
 from time import sleep
 import sudoku_generator
 import operator
+from multicast_server import *
+
 """---------------------------------------------------------------------------------------------------------------------
                                             LOG info
 ---------------------------------------------------------------------------------------------------------------------"""
@@ -46,6 +48,8 @@ NOTI_JOIN = '0'    #notificate user about joining new person
 NOTI_MOVE = '1'    #notify about move
 NOTI_QUIT = '2'    #notify somebody quitted
 NOTI_WINNER = '3'   #announce the winner
+# multi-cast
+MULTICAST_PERIOD = 10
 
 
 """---------------------------------------------------------------------------------------------------------------------
@@ -68,11 +72,17 @@ class Server:
         # declare channel
         self.channel = self.connection.channel()
         # declare server queue
-        self.channel.queue_declare(queue='')  
+        result = self.channel.queue_declare(exclusive=True)
+        self.server_q = result.method.queue
         # process 1 task each time
         self.channel.basic_qos(prefetch_count=1)
         # set consume
-        self.channel.basic_consume(self.on_request, queue='', no_ack=True)
+        self.channel.basic_consume(self.on_request, queue=self.server_q, no_ack=True)
+        # start multi-casting
+        mc_ip, mc_port = '239.1.1.1', 7778
+        self.multicast = threading.Thread(target=self.multicasting, args=(mc_ip, mc_port))
+        self.multicast.daemon = True
+        self.multicast.start()
         LOG.warn('Awaiting RPC requests')
 
     def on_request(self, ch, method, props, body):
@@ -102,17 +112,17 @@ class Server:
             difficulty=msg[0]
             limit=msg[1]
             username=msg[2]
-            id += 1  # game ids will start from 1
-            str_id = str(id)
+            self.id += 1  # game ids will start from 1
+            str_id = str(self.id)
             sudoku_answer, generated_sudoku = sudoku_generator.setup_sudoku(difficulty)
             sudoku.append(generated_sudoku)
             sudoku.append(limit)
             names.append(username)
-            self.game[id] = sudoku
-            self.gameinfo[id]=names
-            self.answers[id] = sudoku_answer
+            self.game[self.id] = sudoku
+            self.gameinfo[self.id]=names
+            self.answers[self.id] = sudoku_answer
             score[username] = 0 # saving score 
-            self.room[id] = self.score
+            self.rooms[self.id] = score
             rsp = CTR_RSP +  MSG_SEP+ str_id
             
         # REQ 2--------------------------------------------------------------------------------
@@ -129,14 +139,14 @@ class Server:
             del self.gameinfo[game_id][name]
             del self.rooms[game_id][name]
             del self.rooms[game_id][name]
-            if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
+            if len(self.rooms[game_id]) == 0:  # if no user left to the game session delete it,send rsp ok
                 del self.rooms[game_id]
                 del self.game[game_id]
                 del self.answers[game_id]
                 del self.gameinfo[game_id] 
                 rsp = CTR_RSP +  MSG_SEP+ RSP_OK
             else:
-                target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
+                target = self.gameinfo[game_id]       # else somebody left, let's notify them !!!
                 target.remove(name)
                 rsp = CTR_RSP +  MSG_SEP+ RSP_OK
                 if target == []:
@@ -314,6 +324,11 @@ class Server:
             # ch.basic_ack(delivery_tag=method.delivery_tag)
         LOG.warn('Notification sent!')
         return
+
+    def multicasting(self, mc_ip, mc_port):
+        while True:
+            send_whoishere(self.server_q, (mc_ip, mc_port))
+            sleep(MULTICAST_PERIOD)
 
     def on_close(self):
         self.connection.close()

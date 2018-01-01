@@ -149,7 +149,7 @@ class ConnectServer(Frame):
         # get user name
         name = self.name_entry.get()
         # check username
-
+        
         # jump page
         # self.controller.show_frame('Lobby')
         return
