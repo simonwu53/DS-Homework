@@ -138,22 +138,23 @@ class Server:
             if msg[0]=="0":
                 del self.users[name]
                 rsp = CTR_RSP + MSG_SEP + RSP_OK
-            del self.rooms[game_id][name]
-            del self.gameinfo[game_id][name]
-            if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
-                del self.rooms[game_id]
-                del self.game[game_id]
-                del self.answers[game_id]
-                del self.gameinfo[game_id] 
-                rsp = CTR_RSP +  MSG_SEP+ RSP_OK
             else:
-                target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
-                target.remove(name)
-                rsp = CTR_RSP +  MSG_SEP+ RSP_OK
-                if target == []:
-                    target = None
+                del self.rooms[game_id][name]
+                del self.gameinfo[game_id][name]
+                if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
+                    del self.rooms[game_id]
+                    del self.game[game_id]
+                    del self.answers[game_id]
+                    del self.gameinfo[game_id] 
+                    rsp = CTR_RSP +  MSG_SEP+ RSP_OK
                 else:
-                    noti_msg = CTR_NOT+MSG_SEP+NOTI_QUIT+MSG_SEP+name
+                    target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
+                    target.remove(name)
+                    rsp = CTR_RSP +  MSG_SEP+ RSP_OK
+                    if target == []:
+                        target = None
+                    else:
+                        noti_msg = CTR_NOT+MSG_SEP+NOTI_QUIT+MSG_SEP+name
             
                     LOG.warn('User %s has quit!' % body)
         elif body.startswith(REQ_JOIN+MSG_SEP):
