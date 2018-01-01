@@ -92,6 +92,11 @@ class User(object):
                 self.response = []
             elif msg.startswith(NOTI_QUIT + MSG_SEP):
                 self.response = []
+            elif msg.startswith(NOTI_WINNER + MSG_SEP):
+                msg = msg[2:]
+                next_msg = msg.find(MSG_SEP)
+                self.username = msg[2:next_msg]
+                self.score = msg[next_msg+1:]
         # if response
         elif body.startswith(CTR_RSP + MSG_SEP):
             body = body[2:]
