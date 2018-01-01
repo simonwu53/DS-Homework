@@ -156,7 +156,7 @@ class Server:
                     else:
                         noti_msg = CTR_NOT+MSG_SEP+NOTI_QUIT+MSG_SEP+name
             
-                    LOG.warn('User %s has quit!' % body)
+            LOG.warn('User %s has quit!' % name)
         elif body.startswith(REQ_JOIN+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_JOIN)
             body = body[2:]
@@ -205,7 +205,7 @@ class Server:
             rsp=CTR_RSP + MSG_SEP +''.join(sudokuu)   #sudoku is fetched and sent
             LOG.warn("sudoku sent to server")
             
-     # REQ 5--------------------------------------------------------------------------------
+        # REQ 5--------------------------------------------------------------------------------
         elif body.startswith(REQ_getRoom+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_getRoom)
             msg = ''

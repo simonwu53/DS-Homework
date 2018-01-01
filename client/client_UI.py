@@ -156,7 +156,7 @@ class ConnectServer(Frame):
             self.controller.user.name = name
             # update next frame
             frame = self.controller.frames['Lobby']
-            # frame.prepare()
+            frame.prepare()
             # show next frame
             self.controller.show_frame("Lobby")
         elif rsp == RSP_DUP:
@@ -231,7 +231,7 @@ class Lobby(Frame):
         self.join_button = Button(self.lobby_frame, text='Join', command=self.join)
         self.join_button.grid(row=2, column=0, sticky=NSEW)
         # CREATE button
-        self.create_button = Button(self.lobby_frame, text='Create new', command=self.join)
+        self.create_button = Button(self.lobby_frame, text='Create new', command=self.create)
         self.create_button.grid(row=2, column=1, sticky=NSEW)
         # REFRESH button
         self.refresh_butoon = Button(self.lobby_frame, text='Refresh', command=self.prepare)
@@ -246,8 +246,9 @@ class Lobby(Frame):
         self.sessionlist.delete(0, END)
         # get room info
         rsp = self.controller.user.call(REQ_getRoom, '')
-        print(rsp)
-        if not rsp:
+        if rsp == MSG_SEP:
+            data = 'No game session yet'
+            self.sessionlist.insert(END, data)
             return
         else:
             rooms = rsp.split(MSG_SEP)
@@ -264,11 +265,17 @@ class Lobby(Frame):
 
     def create(self):
         # create new game session
+        self.controller.show_frame("Newroom")
         return
 
     def quit_client(self):
+        # quit at server side
+        req = '0' + MSG_SEP + self.controller.user.name
+        rsp = self.controller.user.call(REQ_QUIT, req)
+        # close connection
         self.controller.user.connection.close()
         self.quit()
+        return
 
 
 # **NEWROOM**---------------------------------------------------------------------------------------
@@ -281,11 +288,58 @@ class Newroom(Frame):
         # 'ConnectServer' Frame
         self.newroom_frame = Frame(self, width=350, height=150, pady=50)
         self.newroom_frame.pack()
+        # variables
+        DIFFICULTY = ['easy', 'medium', 'hard']
+        self.diffi_var = StringVar()
 
         # head label
         label = Label(self.newroom_frame, text='Create your Sudoku', font=controller.title_font)
         label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
 
+        # difficulty
+        self.diffi_label = Label(self.newroom_frame, text='Select Difficulty:')
+        self.diffi_label.grid(row=1, column=0, sticky=NSEW)
+        self.diffi_menu = OptionMenu(self.newroom_frame, self.diffi_var, *DIFFICULTY)
+        self.diffi_menu.grid(row=1, column=1, sticky=NSEW)
+
+        # limitation
+        self.limit_label = Label(self.newroom_frame, text='Player Limitation:')
+        self.limit_label.grid(row=2, column=0, sticky=NSEW)
+        self.limit_entry = Entry(self.newroom_frame)
+        self.limit_entry.grid(row=2, column=1, sticky=NSEW)
+
+        # button
+        self.submit_button = Button(self.newroom_frame, text='Submit', command=self.create)
+        self.submit_button.grid(row=3, column=0, sticky=NSEW)
+        self.back_button = Button(self.newroom_frame, text='Back', command=self.back)
+        self.back_button.grid(row=3, column=1, sticky=NSEW)
+
+    def create(self):
+        # create game session
+        # get difficulty & limitation number
+        diffi = self.diffi_var.get()
+        limit = self.limit_entry.get()
+        try:
+            int(limit)
+        except ValueError as e:
+            tkMessageBox.showwarning('Error occurred', 'Please input integer number!')
+            self.limit_entry.delete(0, END)
+            return
+        logging.debug('[*] Sudoku mode: %s' % diffi)
+        logging.debug('[*] Game limitation: %s' % limit)
+        # send req
+        req = diffi + MSG_SEP + limit + MSG_SEP + self.controller.user.name
+        rsp = self.controller.user.call(REQ_CREATE, req)
+        print(rsp)
+        # set game id
+        self.controller.user.gameid = int(rsp)
+        return
+
+    def back(self):
+        # back to lobby
+        self.limit_entry.delete(0, END)
+        self.controller.show_frame("Lobby")
+        return
 
 
 """---------------------------------------------------------------------------------------------------------------------
