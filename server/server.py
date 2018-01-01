@@ -168,18 +168,19 @@ class Server:
             if (len(self.rooms[game_id]) > self.game[game_id][1]):
                 rsp=CTR_RSP + MSG_SEP + RSP_ERR   # limit is already reached at this game session
                 LOG.warn("limit reached")
-            self.rooms[game_id][name] = 0 # otherwise user is registered to the wanted game session and started from the score 0.
-            self.gameinfo[game_id].append(name)
-            #notification
-            LOG.warn("new user joined")
-            rsp= CTR_RSP + MSG_SEP + RSP_OK
-            target = self.gameinfo[game_id]
-            target.remove(name)
-            if target == []:
-                target = None
             else:
-                noti_msg = CTR_NOT + MSG_SEP + NOTI_JOIN + MSG_SEP + name
-                LOG.warn("notification to users sent")
+                self.rooms[game_id][name] = 0 # otherwise user is registered to the wanted game session and started from the score 0.
+                self.gameinfo[game_id].append(name)
+                #notification
+                LOG.warn("new user joined")
+                rsp= CTR_RSP + MSG_SEP + RSP_OK
+                target = self.gameinfo[game_id]
+                target.remove(name)
+                if target == []:
+                    target = None
+                else:
+                    noti_msg = CTR_NOT + MSG_SEP + NOTI_JOIN + MSG_SEP + name
+                    LOG.warn("notification to users sent")
             
         # REQ 3--------------------------------------------------------------------------------
         elif body.startswith(REQ_getUser +MSG_SEP):
