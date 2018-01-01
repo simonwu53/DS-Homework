@@ -135,6 +135,9 @@ class Server:
             name=msg[1]
             noti_msg = ''
             rsp=''
+            if msg[0]=="0":
+                del self.users[name]
+                rsp = CTR_RSP + MSG_SEP + RSP_OK
             del self.rooms[game_id][name]
             del self.gameinfo[game_id][name]
             if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
