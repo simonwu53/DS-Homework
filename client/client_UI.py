@@ -74,7 +74,7 @@ class Client(Tk):
 
         # store client UI frames
         self.frames = {}
-        for F in (ConnectServer, Lobby):
+        for F in (ConnectServer, Lobby, Newroom):
             page_name = F.__name__
             frame = F(master=container, controller=self)  # init page
             self.frames[page_name] = frame
@@ -102,7 +102,7 @@ class ConnectServer(Frame):
         # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # 'ConnectServer' Frame
-        self.consrv_frame = Frame(self, width=350, height=150, pady=75)
+        self.consrv_frame = Frame(self, width=350, height=150, pady=50)
         self.consrv_frame.pack()
         # some variables
         self.mc = None
@@ -114,7 +114,7 @@ class ConnectServer(Frame):
 
         # server list
         self.srvlist = Listbox(self.consrv_frame, height=10)
-        self.srvlist.grid(row=1, column=0, columnspan=2)
+        self.srvlist.grid(row=1, column=0, columnspan=2, sticky=NSEW)
         # enter user name label
         self.name_label = Label(self.consrv_frame, text='Enter your name: ')
         self.name_label.grid(row=2, column=0, sticky=NSEW)
@@ -141,17 +141,39 @@ class ConnectServer(Frame):
             tkMessageBox.showwarning('Error occurred', 'Please select a server first!')
             return
         q = q[0]
-        # stop detect server
-        # self.close_detection()
-        # connect queue
-        logging.debug('User has selected server: %s' % q)
+        # set server's queue
         self.controller.user.server_q = q
         # get user name
         name = self.name_entry.get()
         # check username
-        
-        # jump page
-        # self.controller.show_frame('Lobby')
+        if not name:
+            tkMessageBox.showwarning('Error occurred', 'Please enter your name!')
+            return
+        rsp = self.controller.user.call(REQ_NAME, name)
+        if rsp == RSP_OK:
+            logging.debug('User name valid!')
+            # set user name
+            self.controller.user.name = name
+            # update next frame
+            frame = self.controller.frames['Lobby']
+            # frame.prepare()
+            # show next frame
+            self.controller.show_frame("Lobby")
+        elif rsp == RSP_DUP:
+            logging.debug('Duplicated username!')
+            tkMessageBox.showwarning('Error occurred', 'Your username already exists!')
+            self.name_entry.delete(0, END)
+            self.name_entry.focus()
+        else:
+            logging.debug('Unknown Error!')
+            tkMessageBox.showwarning('Error occurred', 'Can''t login right now, please try again later!')
+            self.name_entry.delete(0, END)
+            self.name_entry.focus()
+        # stop detect server
+        # self.close_detection()
+        # connect queue
+        logging.debug('User has selected server: %s' % q)
+        logging.debug('User set username: %s' % name)
         return
 
     def server_detect(self):
@@ -196,17 +218,74 @@ class Lobby(Frame):
         # self.pack(side="top", fill="both", expand=True)
         self.controller = controller
         # 'ConnectServer' Frame
-        self.lobby_frame = Frame(self, width=350, height=150, pady=75)
+        self.lobby_frame = Frame(self, width=350, height=150, pady=50)
         self.lobby_frame.pack()
-        # some variables
-        self.mc = None
-        self.serverlist = None
 
         # head label
         label = Label(self.lobby_frame, text='Welcome', font=controller.title_font)
+        label.grid(row=0, column=0, columnspan=4, sticky=NSEW)
+        # game sessions
+        self.sessionlist = Listbox(self.lobby_frame, height=10)
+        self.sessionlist.grid(row=1, column=0, columnspan=4, sticky=NSEW)
+        # JOIN button
+        self.join_button = Button(self.lobby_frame, text='Join', command=self.join)
+        self.join_button.grid(row=2, column=0, sticky=NSEW)
+        # CREATE button
+        self.create_button = Button(self.lobby_frame, text='Create new', command=self.join)
+        self.create_button.grid(row=2, column=1, sticky=NSEW)
+        # REFRESH button
+        self.refresh_butoon = Button(self.lobby_frame, text='Refresh', command=self.prepare)
+        self.refresh_butoon.grid(row=2, column=2, sticky=NSEW)
+        # quit button
+        self.quit_button = Button(self.lobby_frame, text='Quit', command=self.quit_client)
+        self.quit_button.grid(row=2, column=3, sticky=NSEW)
+        logging.debug('Loading *Lobby* Page success!')
+
+    def prepare(self):
+        # clear room info
+        self.sessionlist.delete(0, END)
+        # get room info
+        rsp = self.controller.user.call(REQ_getRoom, '')
+        print(rsp)
+        if not rsp:
+            return
+        else:
+            rooms = rsp.split(MSG_SEP)
+            rooms = rooms[:-1]  # del last empty str
+            for room in rooms:
+                roominfo = room.split(DTA_SEP)
+                data = roominfo[0] + '   limit: ' + roominfo[1] + '/' + roominfo[2]
+                self.sessionlist.insert(END, data)
+        return
+
+    def join(self):
+        # join game session
+        return
+
+    def create(self):
+        # create new game session
+        return
+
+    def quit_client(self):
+        self.controller.user.connection.close()
+        self.quit()
+
+
+# **NEWROOM**---------------------------------------------------------------------------------------
+class Newroom(Frame):
+    def __init__(self, master, controller):
+        # init Frame
+        Frame.__init__(self, master)
+        # self.pack(side="top", fill="both", expand=True)
+        self.controller = controller
+        # 'ConnectServer' Frame
+        self.newroom_frame = Frame(self, width=350, height=150, pady=50)
+        self.newroom_frame.pack()
+
+        # head label
+        label = Label(self.newroom_frame, text='Create your Sudoku', font=controller.title_font)
         label.grid(row=0, column=0, columnspan=2, sticky=NSEW)
 
-        logging.debug('Loading *Lobby* Page success!')
 
 
 """---------------------------------------------------------------------------------------------------------------------
