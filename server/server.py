@@ -85,6 +85,7 @@ class Server:
         self.multicast.start()
         LOG.warn('Awaiting RPC requests')
 
+   
     def on_request(self, ch, method, props, body):
         target = None
         # REQ 0--------------------------------------------------------------------------------
@@ -133,20 +134,17 @@ class Server:
             game_id=int(msg[0])
             name=msg[1]
             noti_msg = ''
-
             rsp=''
             del self.rooms[game_id][name]
             del self.gameinfo[game_id][name]
-            del self.rooms[game_id][name]
-            del self.rooms[game_id][name]
-            if len(self.rooms[game_id]) == 0:  # if no user left to the game session delete it,send rsp ok
+            if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
                 del self.rooms[game_id]
                 del self.game[game_id]
                 del self.answers[game_id]
                 del self.gameinfo[game_id] 
                 rsp = CTR_RSP +  MSG_SEP+ RSP_OK
             else:
-                target = self.gameinfo[game_id]       # else somebody left, let's notify them !!!
+                target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
                 target.remove(name)
                 rsp = CTR_RSP +  MSG_SEP+ RSP_OK
                 if target == []:
@@ -196,32 +194,6 @@ class Server:
         elif body.startswith(REQ_getSudoku+MSG_SEP):
             LOG.warn('REQ code: %s' % REQ_getSudoku)
             body = body[2:]
-            msgi=body.split(MSG_SEP)
-            game_id=int(msgi[0])
-            for user_name in self.roots[game_id]:  
-                msg +=  user_name + DTA_SEP + str(self.roots[game_id][user_name][0]) + MSG_SEP #header:username/score:username/score
-
-            rsp = CTR_RSP + MSG_SEP + msg
-            LOG.warn("user infos sent to server")
-        # REQ 4--------------------------------------------------------------------------------
-        elif body.startswith(REQ_getSudoku+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_getSudoku)
-            body = body[2:]
-            rsp = ''
-            msgi=body.split(MSG_SEP)
-            game_id=int(msgi[0])    #getting send game id 
-            sudokuu=self.game[game_id][0]
-            rsp=CTR_RSP + MSG_SEP +''.join(sudokuu)   #sudoku is fetched and sent
-            LOG.warn("sudoku sent to server")
-            
-     # REQ 5--------------------------------------------------------------------------------
-        elif body.startswith(REQ_getRoom+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_getRoom)
-          
-        # REQ 6--------------------------------------------------------------------------------
-        elif body.startswith(REQ_JOIN+MSG_SEP):
-            LOG.warn('REQ code: %s' % REQ_JOIN)
-            body = body[2:]
             rsp = ''
             msgi=body.split(MSG_SEP)
             game_id=int(msgi[0])    #getting send game id 
@@ -240,8 +212,6 @@ class Server:
             msg += MSG_SEP
             rsp=CTR_RSP + MSG_SEP + msg
           # 1:1/5/4:   this kind of string will be returned. header:gameid/players/limit
-
-       
         # REQ move-------------------------------------------------------------------------------
         elif body.startswith(REQ_MOVE + MSG_SEP):
             msg = body[2:]
