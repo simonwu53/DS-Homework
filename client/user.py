@@ -86,36 +86,8 @@ class User(object):
         if body.startswith(CTR_NOT + MSG_SEP):
             # do notification
             msg = body[2:]
-            # if msg.startswith(REQ_INVT + MSG_SEP):
-            #     # do invitation
-            #     msg = msg[2:]
-            #     frame = self.frames['Lobby']
-            #     # using another thread accept invitation
-            #     t = threading.Thread(target=frame.raiseivt, args=(msg,))
-            #     t.start()
-            # elif msg.startswith(REQ_PMSG + MSG_SEP):
-            #     msg = msg[2:]
-            #     frame = self.frames['PrivateChat']
-            #     msginfo = msg.split(SPE_SEP)
-            #     fromwho = msginfo[0]
-            #     txt = msginfo[1]
-            #     if self.privatechat is None:
-            #         a = tkMessageBox.askokcancel('New Message',
-            #                                      '%s send you a message: %s.\nDo you want to open?' % (fromwho, txt))
-            #         if a:
-            #             self.privatechat = fromwho
-            #             frame.prepare(txt, fromwho)
-            #     else:
-            #         frame.updatelist(txt)
-            # elif msg.startswith(REQ_MSGS + MSG_SEP):
-            #     # do msg notification
-            #     msg = msg[2:]
-            #     # update GUI
-            #     frame = self.frames['Room']
-            #     frame.msglist.insert(END, msg)
-            # else:
-            #     for frame in self.frames.values():
-            #         frame.notification(msg)
+            if msg.startswith(NOTI_JOIN + MSG_SEP):
+                self.response = msg[2:]
         # if response
         elif body.startswith(CTR_RSP + MSG_SEP):
             body = body[2:]
