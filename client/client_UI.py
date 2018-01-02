@@ -48,7 +48,6 @@ NOTI_MOVE = '1'
 NOTI_QUIT = '2'
 NOTI_WINNER = '3'
 
-
 """---------------------------------------------------------------------------------------------------------------------
                                           Client UI
 ---------------------------------------------------------------------------------------------------------------------"""
@@ -391,6 +390,13 @@ class Gamesession(Frame):
         # Slogan welcome
         label = Label(self.game_header_frame, textvariable=self.welcome, font=controller.title_font)
         label.grid(row=0, column=0, columnspan=16, sticky=NSEW, padx=(75, 75))
+        self.user_labels = []
+        self.score = StringVar()
+        self.score.set(str(self.controller.user.score))
+        self.name_label = Label(self.game_header_frame, text=self.controller.user.name + ':')
+        self.score_label = Label(self.game_header_frame, textvariable=self.score)
+        self.name_label.grid(row=1, column=0, sticky=NSEW)
+        self.score_label.grid(row=1, column=1, sticky=W)
 
         """footer frame"""
         # submit
@@ -401,7 +407,10 @@ class Gamesession(Frame):
         self.exit_button = Button(self.game_footer_frame, text='Quit', command=self.quit_game, width=6)
         self.exit_button.grid(row=0, column=1, sticky=NSEW)
         # notifications
-        pass
+        self.notify_var = StringVar()
+        self.notify_var.set('')
+        self.noti_label = Label(self.game_footer_frame, textvariable=self.notify_var)
+        self.noti_label.grid(row=1, column=0, columnspan=2, sticky=NSEW)
 
         """content frame"""
         # sudoku setup
@@ -413,16 +422,43 @@ class Gamesession(Frame):
 
     def prepare(self):
         # prepare sudoku & ui
+        self.update_user()
+        self.update_sudoku()
         return
 
     def update_user(self):
+        # clear ui
+        for eachlabel in self.user_labels:
+            eachlabel.destroy()
+        # send req
+        userdata = self.controller.user.call(REQ_getUser, self.controller.user.gameid)
+        userdata = userdata.split(MSG_SEP)
+        userdata = userdata[:-1]
+        # update ui
+        row, column = 1, 2
+        for eachuser in userdata:
+            name, score = eachuser.split(DTA_SEP)
+            if name == self.controller.user.name:
+                pass
+            else:
+                name_label = Label(self.game_header_frame, text=name + ':')
+                score_label = Label(self.game_header_frame, text=score)
+                name_label.grid(row=row, column=column, sticky=NSEW)
+                score_label.grid(row=row, column=column + 1, sticky=W)
+                column += 2
+                self.user_labels.append(name_label)
+                self.user_labels.append(score_label)
         return
 
     def update_sudoku(self):
         # clear ui
-        pass
+        for eachlabel in self.puzzle_labels:
+            eachlabel.destroy()
+        for eachentry in self.entries.keys():
+            eachentry.destroy()
         # send req
-        pass
+        sudoku = self.controller.user.call(REQ_getSudoku, self.controller.user.gameid)
+        self.puzzle = list(sudoku)
         # update ui
         count = 0
         for i in range(9):
@@ -439,9 +475,49 @@ class Gamesession(Frame):
         return
 
     def submit_move(self):
+        modified_entries = {}
+        entries = self.entries.keys()
+        for eachentry in entries:
+            value = eachentry.get()
+            if value != '':
+                modified_entries[eachentry] = value
+            elif not value.isdigit():
+                tkMessageBox.showwarning('Too many entries', 'Please input a number!')
+
+        if len(modified_entries) > 1:
+            tkMessageBox.showwarning('Too many entries', 'Please make exactly one entry!')
+            return 0
+        elif len(modified_entries) == 0:
+            tkMessageBox.showwarning('No entry', 'Please fill one entry first!')
+            return 0
+
+        entries = modified_entries.keys()
+        position = self.entries[entries[0]]
+        inputvalue = modified_entries[entries[0]]
+        msg = str(self.controller.user.gameid) + MSG_SEP + str(
+            position) + MSG_SEP + inputvalue + MSG_SEP + self.controller.user.name
+        # send req
+        rsp = self.controller.user.call(REQ_MOVE, msg)
+        # change score
+        if rsp == RSP_OK:  # correct
+            self.controller.user.score += 1
+        elif rsp == RSP_ERR:
+            self.controller.user.score -= 1
+        elif rsp == RSP_LATE:
+            tkMessageBox.showwarning('Late', 'You are late!')
+        self.score.set(str(self.controller.user.score))
         return
 
     def quit_game(self):
+        # send req
+        msg = str(self.controller.user.gameid) + MSG_SEP + self.controller.user.name
+        rsp = self.controller.user.call(REQ_QUIT, msg)
+        if rsp == RSP_OK:
+            frame = self.controller.frames['Lobby']
+            frame.prepare()
+            self.controller.show_frame("Lobby")
+        else:
+            tkMessageBox.showwarning('Error occurred', 'Please try again!')
         return
 
 
