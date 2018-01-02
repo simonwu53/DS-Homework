@@ -2,7 +2,7 @@
 from Sudoku.Generator import *
 
 
-def setup_sudoku(diffi, txt='/Users/simonwu/PycharmProjects/DS/DS-Homework/HW1/base.txt'):
+def setup_sudoku(diffi, txt='base.txt'):
     # setting difficulties and their cutoffs for each solve method
     difficulties = {
         'easy': (35, 0),  # fast generate
