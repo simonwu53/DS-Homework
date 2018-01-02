@@ -8,7 +8,6 @@ import uuid
 import threading
 import time
 from detect_server import detect_server
-from user import User
 from time import sleep
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-2s) %(message)s', )
@@ -47,6 +46,96 @@ NOTI_JOIN = '0'
 NOTI_MOVE = '1'
 NOTI_QUIT = '2'
 NOTI_WINNER = '3'
+
+
+"""---------------------------------------------------------------------------------------------------------------------
+                                          User info
+---------------------------------------------------------------------------------------------------------------------"""
+class User(object):
+    def __init__(self, controller):
+        self.name = ''
+        self.score = 0
+        self.gameid = 0
+        self.limit = 0
+        self.number = 0
+        self.server_q = None
+        self.corr_id = None
+        # get controller
+        self.controller = controller
+        # other variables
+        self.connection = None
+        self.channel = None
+        self.queue = None
+        self.response = None
+
+    def init_rabbitmq(self):
+        # establish connection
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
+        # declare channel
+        self.channel = self.connection.channel()
+        # declare client unique callback queue
+        self.queue = str(uuid.uuid4())
+        self.channel.queue_declare(queue=self.queue, exclusive=True)
+        # self.channel.basic_qos(prefetch_count=1)
+        # listening on self queue
+        self.channel.basic_consume(self.on_response, no_ack=True,
+                                   queue=self.queue)
+        t = threading.Thread(target=self.start_consume)
+        t.start()
+
+    def on_response(self, ch, method, props, body):
+        # if notification
+        if body.startswith(CTR_NOT + MSG_SEP):
+            # do notification
+            msg = body[2:]
+            if msg.startswith(NOTI_JOIN + MSG_SEP):
+                self.number += 1
+                frame = self.controller.frames['Gamesession']
+                frame.update_user()
+                if self.number == self.limit:
+                    frame.start_game()
+            elif msg.startswith(NOTI_MOVE + MSG_SEP):
+                pass
+            elif msg.startswith(NOTI_QUIT + MSG_SEP):
+                pass
+            elif msg.startswith(NOTI_WINNER + MSG_SEP):
+                msg = msg[2:]
+                next_msg = msg.find(MSG_SEP)
+                self.username = msg[2:next_msg]
+                self.score = msg[next_msg+1:]
+        # if response
+        elif body.startswith(CTR_RSP + MSG_SEP):
+            body = body[2:]
+            if self.corr_id == props.correlation_id:
+                self.response = body
+        return
+
+    def call(self, req, m):
+        # compose msg
+        msg = req + MSG_SEP + str(m)
+        self.corr_id = str(uuid.uuid4())
+        self.channel.basic_publish(exchange='',
+                                   routing_key=self.server_q,
+                                   properties=pika.BasicProperties(
+                                       reply_to=self.queue,
+                                       correlation_id=self.corr_id,
+                                   ),
+                                   body=msg)
+        while self.response is None:
+            # self.connection.process_data_events()
+            pass
+        rsp = self.response
+        self.response = None
+        return rsp
+
+    def start_consume(self):
+        self.channel.start_consuming()
+        return
+
+    def __repr__(self):
+        return 'User(name=%s, gameid=%s, score=%s, server_q=%s)' % (
+            self.name, self.gameid, self.score, self.server_q)
+
 
 """---------------------------------------------------------------------------------------------------------------------
                                           Client UI
@@ -263,6 +352,8 @@ class Lobby(Frame):
         # get selection
         id = [self.sessionlist.get(idx) for idx in self.sessionlist.curselection()]
         id = id[0]  # get first element in list
+        number = int(id[11])
+        limit = int(id[13])
         id = id[0]  # get first character in element
         # send request
         req = id + MSG_SEP + self.controller.user.name
@@ -270,9 +361,14 @@ class Lobby(Frame):
         if rsp == RSP_OK:
             logging.debug('[*] Game ID is: %s' % id)
             self.controller.user.gameid = int(id)
+            # set limit
+            self.controller.user.limit = limit
+            self.controller.user.number = number + 1
             # prepare sudoku
             frame = self.controller.frames['Gamesession']
             frame.prepare()
+            if self.controller.user.limit == self.controller.user.number:
+                frame.start_game()
             # turn page
             self.controller.show_frame("Gamesession")
         else:
@@ -348,6 +444,9 @@ class Newroom(Frame):
         rsp = self.controller.user.call(REQ_CREATE, req)
         # set game id
         self.controller.user.gameid = int(rsp)
+        # set limitation
+        self.controller.user.limit = int(limit)
+        self.controller.user.number = 1
         logging.debug('[*] Game ID is: %s' % rsp)
         # prepare sudoku
         frame = self.controller.frames['Gamesession']
@@ -392,8 +491,10 @@ class Gamesession(Frame):
         label.grid(row=0, column=0, columnspan=16, sticky=NSEW, padx=(75, 75))
         self.user_labels = []
         self.score = StringVar()
+        self.name = StringVar()
         self.score.set(str(self.controller.user.score))
-        self.name_label = Label(self.game_header_frame, text=self.controller.user.name + ':')
+        self.name.set('')
+        self.name_label = Label(self.game_header_frame, textvariable=self.name)
         self.score_label = Label(self.game_header_frame, textvariable=self.score)
         self.name_label.grid(row=1, column=0, sticky=NSEW)
         self.score_label.grid(row=1, column=1, sticky=W)
@@ -439,7 +540,7 @@ class Gamesession(Frame):
         for eachuser in userdata:
             name, score = eachuser.split(DTA_SEP)
             if name == self.controller.user.name:
-                pass
+                self.name.set(name + ':')
             else:
                 name_label = Label(self.game_header_frame, text=name + ':')
                 score_label = Label(self.game_header_frame, text=score)
@@ -480,16 +581,18 @@ class Gamesession(Frame):
         for eachentry in entries:
             value = eachentry.get()
             if value != '':
-                modified_entries[eachentry] = value
-            elif not value.isdigit():
-                tkMessageBox.showwarning('Too many entries', 'Please input a number!')
+                if not value.isdigit():
+                    tkMessageBox.showwarning('Not a digit?', 'Please input a number!')
+                    return
+                else:
+                    modified_entries[eachentry] = value
 
         if len(modified_entries) > 1:
             tkMessageBox.showwarning('Too many entries', 'Please make exactly one entry!')
-            return 0
+            return
         elif len(modified_entries) == 0:
             tkMessageBox.showwarning('No entry', 'Please fill one entry first!')
-            return 0
+            return
 
         entries = modified_entries.keys()
         position = self.entries[entries[0]]
@@ -520,6 +623,10 @@ class Gamesession(Frame):
             tkMessageBox.showwarning('Error occurred', 'Please try again!')
         return
 
+    def start_game(self):
+        self.welcome.set('Game Started!')
+        self.submit_button.configure(state='normal')
+        return
 
 """---------------------------------------------------------------------------------------------------------------------
                                             MAIN

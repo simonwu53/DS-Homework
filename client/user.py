@@ -56,6 +56,8 @@ class User(object):
         self.name = ''
         self.score = 0
         self.gameid = 0
+        self.limit = 0
+        self.number = 0
         self.server_q = None
         self.corr_id = None
         # get controller
@@ -87,11 +89,15 @@ class User(object):
             # do notification
             msg = body[2:]
             if msg.startswith(NOTI_JOIN + MSG_SEP):
-                self.response = msg[2:]
+                self.number += 1
+                frame = self.controller.frames['Gamesession']
+                frame.update_user()
+                if self.number == self.limit:
+                    frame.start_game()
             elif msg.startswith(NOTI_MOVE + MSG_SEP):
-                self.response = []
+                pass
             elif msg.startswith(NOTI_QUIT + MSG_SEP):
-                self.response = []
+                pass
             elif msg.startswith(NOTI_WINNER + MSG_SEP):
                 msg = msg[2:]
                 next_msg = msg.find(MSG_SEP)

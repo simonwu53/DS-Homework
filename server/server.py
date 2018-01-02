@@ -122,6 +122,7 @@ class Server:
             self.game[self.id] = sudoku
             self.gameinfo[self.id]=names
             self.answers[self.id] = sudoku_answer
+            print(sudoku_answer)
             score[username] = 0 # saving score 
             self.rooms[self.id] = score
             rsp = CTR_RSP +  MSG_SEP+ str_id
@@ -140,7 +141,7 @@ class Server:
                 rsp = CTR_RSP + MSG_SEP + RSP_OK
             else:
                 del self.rooms[game_id][name]
-                del self.gameinfo[game_id][name]
+                self.gameinfo[game_id].remove(name)
                 if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
                     del self.rooms[game_id]
                     del self.game[game_id]
@@ -149,7 +150,7 @@ class Server:
                     rsp = CTR_RSP +  MSG_SEP+ RSP_OK
                 else:
                     target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
-                    target.remove(name)
+                    # target.remove(name)   # line 144 already removed user... and this target is not right
                     rsp = CTR_RSP +  MSG_SEP+ RSP_OK
                     if target == []:
                         target = None
@@ -165,17 +166,18 @@ class Server:
             name=msg[1]
             noti_msg = ''
             rsp=''
-            if (len(self.rooms[game_id]) > self.game[game_id][1]):
+            if len(self.rooms[game_id]) > self.game[game_id][1]:
                 rsp=CTR_RSP + MSG_SEP + RSP_ERR   # limit is already reached at this game session
                 LOG.warn("limit reached")
             else:
-                self.rooms[game_id][name] = 0 # otherwise user is registered to the wanted game session and started from the score 0.
+                self.rooms[game_id][name] = 0  # otherwise user is registered to the wanted game session and started from the score 0.
                 self.gameinfo[game_id].append(name)
-                #notification
+                # notification
                 LOG.warn("new user joined")
                 rsp= CTR_RSP + MSG_SEP + RSP_OK
-                target = self.gameinfo[game_id]
-                target.remove(name)
+                # target = self.gameinfo[game_id]
+                # target.remove(name)              # not right!!
+                target = []
                 if target == []:
                     target = None
                 else:
