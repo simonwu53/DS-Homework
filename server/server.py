@@ -190,8 +190,8 @@ class Server:
             body = body[2:]
             msgi=body.split(MSG_SEP)
             game_id=int(msgi[0])
-            for user_name in self.roots[game_id]:  
-                msg +=  user_name + DTA_SEP + str(self.roots[game_id][user_name][0]) + MSG_SEP #header:username/score:username/score
+            for user_name in self.rooms[game_id]:  
+                msg +=  user_name + DTA_SEP + str(self.rooms[game_id][user_name]) + MSG_SEP #header:username/score:username/score
 
             rsp = CTR_RSP + MSG_SEP + msg
             LOG.warn("user infos sent to server")
