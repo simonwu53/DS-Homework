@@ -241,7 +241,7 @@ class Server:
                 if number == correct_number:  #if the number is correct
                     x = self.rooms[gid][player] #find the user's previous score
                     x += 1  #increase by one
-                    str(x) #make it string and update the score
+                   # str(x) #make it string and update the score
                     self.rooms[gid][player] = x
                     logging.debug("correct move")
                     sudoku[position] = number #put the new number in the sudoku
@@ -264,7 +264,7 @@ class Server:
                 else: #wrong move , decrease the score of the user and update the scores, notify the users about changes
                     x = int(self.rooms[gid][player])
                     x -= 1
-                    str(x)
+                    #str(x)
                     self.rooms[gid][player] = x
                     logging.debug("wrong move")
                     rsp = CTR_RSP + MSG_SEP + RSP_ERR
