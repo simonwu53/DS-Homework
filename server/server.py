@@ -85,7 +85,17 @@ class Server:
         self.multicast.start()
         LOG.warn('Awaiting RPC requests')
 
-   
+    def noti_queues(self,gameid,name):
+        oldtarget = (self.gameinfo[gameid]).copy    #else somebody left, let's notify them !!!
+        oldtarget.remove(name)   # line 144 already removed user... and this target is not right
+        target=[]
+        for key in self.users:
+            for people in oldtarget:
+                if key==people:
+                    target.append(self.users[key])
+        return target            
+
+    
     def on_request(self, ch, method, props, body):
         target = None
         # REQ 0--------------------------------------------------------------------------------
@@ -99,7 +109,7 @@ class Server:
                 rsp = CTR_RSP + MSG_SEP + RSP_OK
                 # register user
                 self.users[body] = props.reply_to
-                LOG.warn('Name valid, registered to database.')
+                LOG.warn('Name valid, registered to database.')        
         
         # REQ 1--------------------------------------------------------------------------------
         elif body.startswith(REQ_CREATE + MSG_SEP):
@@ -149,9 +159,9 @@ class Server:
                     del self.gameinfo[game_id] 
                     rsp = CTR_RSP +  MSG_SEP+ RSP_OK
                 else:
-                    target = self.gameinfo[game_id]       #else somebody left, let's notify them !!!
-                    # target.remove(name)   # line 144 already removed user... and this target is not right
+                    
                     rsp = CTR_RSP +  MSG_SEP+ RSP_OK
+                    target=self.noti_queues(game_id,name)
                     if target == []:
                         target = None
                     else:
@@ -175,9 +185,7 @@ class Server:
                 # notification
                 LOG.warn("new user joined")
                 rsp= CTR_RSP + MSG_SEP + RSP_OK
-                # target = self.gameinfo[game_id]
-                # target.remove(name)              # not right!!
-                target = []
+                target=self.noti_queues(game_id,name)
                 if target == []:
                     target = None
                 else:
@@ -231,41 +239,40 @@ class Server:
             if sudoku[position] =='_': # if position is free    
                 correct_number = self.answers[gid][position] #find correct number in the sudoku answers    
                 if number == correct_number:  #if the number is correct
-                    x = self.rooms[gid][player][0] #find the user's previous score
+                    x = self.rooms[gid][player] #find the user's previous score
                     x += 1  #increase by one
                     str(x) #make it string and update the score
-                    self.rooms[gid][player][0] = x
+                    self.rooms[gid][player] = x
                     logging.debug("correct move")
                     sudoku[position] = number #put the new number in the sudoku
                     rsp = CTR_RSP + MSG_SEP + RSP_OK
                     if self.answers[gid] == self.game[gid][0]: # check if sudoku is full and notify the winner and users
                         user_dict = self.rooms[gid]
-                        winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]                          
-                        target=self.gameinfo[gid]
+                        winner_user = max(user_dict.iteritems(), key=operator.itemgetter(1))[0]  
+                        winner_score=max(user_dict.values())                        
+                        target=self.noti_queues(gid,player)
                         if target == []:
                             target = None
                         else:
-                            noti_msg = CTR_NOT + MSG_SEP + NOTI_WINNER + MSG_SEP + winner_user + MSG_SEP + x
+                            noti_msg = CTR_NOT + MSG_SEP + NOTI_WINNER + MSG_SEP + winner_user + MSG_SEP + str(winner_score)
                     else: # Game not finished notify the users about changed scores and sudoku
-                        target=self.gameinfo[gid]
-                        target.remove(player)
+                        target=self.noti_queues(gid,player)
                         if target == []:
                             target = None
                         else:
-                            noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE + MSG_SEP + self.gameinfo                                        
+                            noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE                                      
                 else: #wrong move , decrease the score of the user and update the scores, notify the users about changes
-                    x = int(self.rooms[gid][player][0])
+                    x = int(self.rooms[gid][player])
                     x -= 1
                     str(x)
-                    self.rooms[gid][player][0] = x
+                    self.rooms[gid][player] = x
                     logging.debug("wrong move")
                     rsp = CTR_RSP + MSG_SEP + RSP_ERR
-                    target=self.gameinfo[gid]
-                    target.remove(player)
+                    target=self.noti_queues(gid,player)
                     if target == []:
                         target = None
                     else:
-                        noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE + MSG_SEP + self.gameinfo 
+                        noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE 
             else: #late move
                 logging.debug("late move")
                 rsp = CTR_RSP + MSG_SEP + RSP_LATE
