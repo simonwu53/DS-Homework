@@ -34,19 +34,19 @@ def send_whoishere(server_q,mc_addr,ttl=1):
         # Here we use temporal socket
         # as it is for multicast sending it will be not bound anyway
         s = socket(AF_INET,SOCK_DGRAM)
-        log.debug('UDP socket declared ...')
+        # log.debug('UDP socket declared ...')
         # Enable loop-back multi-cast
         s.setsockopt(IPPROTO_IP,IP_MULTICAST_LOOP,1)
-        log.debug('Enabled loop-back multi-casts ...')
+        # log.debug('Enabled loop-back multi-casts ...')
 
         if s.getsockopt(IPPROTO_IP, IP_MULTICAST_TTL) != ttl:
             s.setsockopt(IPPROTO_IP,IP_MULTICAST_TTL,ttl)
             log.debug('Set multicast TTL to %d' % ttl)
         s.sendto(REQ,mc_addr)
-        log.debug('Multicast sent to [%s:%d]: %s' % (mc_addr+(REQ,)))
+        # log.debug('Multicast sent to [%s:%d]: %s' % (mc_addr+(REQ,)))
         sock_addr = s.getsockname()
         s.close()
-        log.debug('Closed multicast sending socket %s:%d' % sock_addr)
+        # log.debug('Closed multicast sending socket %s:%d' % sock_addr)
     except Exception as e:
         log.warn('Can not send MC request: %s' % str(e))
 

@@ -86,7 +86,10 @@ class Server:
         LOG.warn('Awaiting RPC requests')
 
     def noti_queues(self,gameid,name):
-        oldtarget = (self.gameinfo[gameid]).copy    #else somebody left, let's notify them !!!
+        oldtarget = []
+        for user in self.gameinfo[gameid]:
+            oldtarget.append(user)
+        #oldtarget = (self.gameinfo[gameid]).copy()    #else somebody left, let's notify them !!!
         oldtarget.remove(name)   # line 144 already removed user... and this target is not right
         target=[]
         for key in self.users:
@@ -150,6 +153,7 @@ class Server:
                 del self.users[name]
                 rsp = CTR_RSP + MSG_SEP + RSP_OK
             else:
+                target = self.noti_queues(game_id, name)
                 del self.rooms[game_id][name]
                 self.gameinfo[game_id].remove(name)
                 if len(self.rooms[game_id]) == 0: #if no user left to the game session delete it,send rsp ok
@@ -158,10 +162,10 @@ class Server:
                     del self.answers[game_id]
                     del self.gameinfo[game_id] 
                     rsp = CTR_RSP +  MSG_SEP+ RSP_OK
+                    target = None
                 else:
                     
                     rsp = CTR_RSP +  MSG_SEP+ RSP_OK
-                    target=self.noti_queues(game_id,name)
                     if target == []:
                         target = None
                     else:
@@ -224,7 +228,7 @@ class Server:
             for key in self.game:
                 numb_players = str(len(self.rooms[key]))
                 msg += str(key) + DTA_SEP + numb_players + DTA_SEP +  self.game[key][1] 
-            msg += MSG_SEP
+                msg += MSG_SEP
             rsp=CTR_RSP + MSG_SEP + msg
           # 1:1/5/4:   this kind of string will be returned. header:gameid/players/limit
         # REQ move-------------------------------------------------------------------------------
@@ -260,7 +264,7 @@ class Server:
                         if target == []:
                             target = None
                         else:
-                            noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE                                      
+                            noti_msg = CTR_NOT + MSG_SEP + NOTI_MOVE + MSG_SEP
                 else: #wrong move , decrease the score of the user and update the scores, notify the users about changes
                     x = int(self.rooms[gid][player])
                     x -= 1
@@ -300,11 +304,11 @@ class Server:
         return
 
     def send_noti(self, des, m, ch, method):
-        msg = CTR_NOT + MSG_SEP + m
+        # msg = CTR_NOT + MSG_SEP + m
         for queue in des:
             ch.basic_publish(exchange='',
                              routing_key=queue,
-                             body=msg)
+                             body=m)
             # ch.basic_ack(delivery_tag=method.delivery_tag)
         LOG.warn('Notification sent!')
         return

@@ -68,8 +68,8 @@ class detect_server(Thread):
             log.warn('Can not parse payload [%s], error: %s' \
                      '' % (msg.split(MSG_FIELD_SEP)[1], str(e)))
             return
-        log.debug('Server queue: %s' % peer_addr_from_msg)
-        log.debug('Peer candidate address from socket [%s:%d]' % src)
+        # log.debug('Server queue: %s' % peer_addr_from_msg)
+        # log.debug('Peer candidate address from socket [%s:%d]' % src)
         return peer_addr_from_msg
 
     def receiver_loop(self):
@@ -78,7 +78,7 @@ class detect_server(Thread):
             while 1:
                 # Receive multi-cast message
                 message, addr = self.__s.recvfrom(self.__rcv_bsize)
-                log.debug('Received Multicast From: %s:%s [%s]' % (addr + (message,)))
+                # log.debug('Received Multicast From: %s:%s [%s]' % (addr + (message,)))
                 server_q = self.__protocol_rcv(message, addr)
                 # if server not in the list, append into server list
                 if server_q not in self.server_list:

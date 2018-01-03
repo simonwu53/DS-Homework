@@ -52,7 +52,7 @@ NOTI_WINNER = '3'
                                           User info
 ---------------------------------------------------------------------------------------------------------------------"""
 class User(object):
-    def __init__(self, controller):
+    def __init__(self, frames):
         self.name = ''
         self.score = 0
         self.gameid = 0
@@ -61,7 +61,7 @@ class User(object):
         self.server_q = None
         self.corr_id = None
         # get controller
-        self.controller = controller
+        self.frames = frames
         # other variables
         self.connection = None
         self.channel = None
@@ -88,21 +88,31 @@ class User(object):
         if body.startswith(CTR_NOT + MSG_SEP):
             # do notification
             msg = body[2:]
+            frame = self.frames['Gamesession']
             if msg.startswith(NOTI_JOIN + MSG_SEP):
+                logging.debug('****************JOIN****************')
                 self.number += 1
-                frame = self.controller.frames['Gamesession']
-                frame.update_user()
                 if self.number == self.limit:
                     frame.start_game()
+                frame.notify_var.set('New player has joined!')
+                t = threading.Thread(target=frame.update_user)
+                t.start()
             elif msg.startswith(NOTI_MOVE + MSG_SEP):
-                pass
+                logging.debug('****************MOVE****************')
+                frame.notify_var.set('Sudoku & Score updated!')
+                t = threading.Thread(target=frame.prepare)
+                t.start()
             elif msg.startswith(NOTI_QUIT + MSG_SEP):
-                pass
+                logging.debug('****************QUIT****************')
+                frame.notify_var.set('A player has quit!')
+                t = threading.Thread(target=frame.update_user)
+                t.start()
             elif msg.startswith(NOTI_WINNER + MSG_SEP):
                 msg = msg[2:]
                 next_msg = msg.find(MSG_SEP)
-                self.username = msg[2:next_msg]
-                self.score = msg[next_msg+1:]
+                username = msg[2:next_msg]
+                score = msg[next_msg+1:]
+                tkMessageBox.showwarning('Game Finished!', 'Winner is %s! Score: %s' % (username, score))
         # if response
         elif body.startswith(CTR_RSP + MSG_SEP):
             body = body[2:]
@@ -156,9 +166,6 @@ class Client(Tk):
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
-        # create user
-        self.user = User(self)
-        self.user.init_rabbitmq()
 
         # store client UI frames
         self.frames = {}
@@ -170,6 +177,10 @@ class Client(Tk):
             # the one on the top of the stacking order
             # will be the one that is visible.
             frame.grid(row=0, column=0, sticky="nsew")
+
+        # create user
+        self.user = User(self.frames)
+        self.user.init_rabbitmq()
 
         self.show_frame("ConnectServer")
 
@@ -334,7 +345,7 @@ class Lobby(Frame):
         self.sessionlist.delete(0, END)
         # get room info
         rsp = self.controller.user.call(REQ_getRoom, '')
-        if rsp == MSG_SEP:
+        if not rsp:
             data = 'No game session yet'
             self.sessionlist.insert(END, data)
             return
@@ -351,6 +362,9 @@ class Lobby(Frame):
         # join game session
         # get selection
         id = [self.sessionlist.get(idx) for idx in self.sessionlist.curselection()]
+        if not id:
+            tkMessageBox.showwarning('Error occurred', 'Please select a game session!')
+            return
         id = id[0]  # get first element in list
         number = int(id[11])
         limit = int(id[13])
@@ -451,6 +465,8 @@ class Newroom(Frame):
         # prepare sudoku
         frame = self.controller.frames['Gamesession']
         frame.prepare()
+        if int(limit) == 1:
+            frame.start_game()
         # turn page
         self.controller.show_frame("Gamesession")
         return
@@ -492,7 +508,7 @@ class Gamesession(Frame):
         self.user_labels = []
         self.score = StringVar()
         self.name = StringVar()
-        self.score.set(str(self.controller.user.score))
+        self.score.set('0')
         self.name.set('')
         self.name_label = Label(self.game_header_frame, textvariable=self.name)
         self.score_label = Label(self.game_header_frame, textvariable=self.score)
@@ -519,11 +535,13 @@ class Gamesession(Frame):
         self.entries = {}
         self.puzzle_labels = []
 
+        self.refresh_notification()
         logging.debug('Loading *GameSession* Page success!')
 
     def prepare(self):
         # prepare sudoku & ui
         self.update_user()
+        sleep(1)
         self.update_sudoku()
         return
 
@@ -531,6 +549,7 @@ class Gamesession(Frame):
         # clear ui
         for eachlabel in self.user_labels:
             eachlabel.destroy()
+        self.user_labels = []
         # send req
         userdata = self.controller.user.call(REQ_getUser, self.controller.user.gameid)
         userdata = userdata.split(MSG_SEP)
@@ -557,6 +576,8 @@ class Gamesession(Frame):
             eachlabel.destroy()
         for eachentry in self.entries.keys():
             eachentry.destroy()
+        self.entries = {}
+        self.puzzle_labels = []
         # send req
         sudoku = self.controller.user.call(REQ_getSudoku, self.controller.user.gameid)
         self.puzzle = list(sudoku)
@@ -604,10 +625,13 @@ class Gamesession(Frame):
         # change score
         if rsp == RSP_OK:  # correct
             self.controller.user.score += 1
+            self.update_sudoku()
         elif rsp == RSP_ERR:
             self.controller.user.score -= 1
+            entries[0].delete(0, END)
         elif rsp == RSP_LATE:
             tkMessageBox.showwarning('Late', 'You are late!')
+            entries[0].delete(0, END)
         self.score.set(str(self.controller.user.score))
         return
 
@@ -627,6 +651,12 @@ class Gamesession(Frame):
         self.welcome.set('Game Started!')
         self.submit_button.configure(state='normal')
         return
+
+    def refresh_notification(self):
+        self.notify_var.set('')
+        self.noti_label.after(1500, self.refresh_notification)
+        return
+
 
 """---------------------------------------------------------------------------------------------------------------------
                                             MAIN
