@@ -32,7 +32,7 @@ def send_whoishere(server_q,mc_addr,ttl=1):
     REQ = WHOISHERE+MSG_FIELD_SEP+ str(server_q)
     try:
         # Here we use temporal socket
-        # as it is for multicast sending it will be not bound anyway
+        # as it is for multicast sen ding it will be not bound anyway
         s = socket(AF_INET,SOCK_DGRAM)
         # log.debug('UDP socket declared ...')
         # Enable loop-back multi-cast
